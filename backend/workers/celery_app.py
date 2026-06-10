@@ -24,8 +24,8 @@ celery_app.conf.update(
     timezone="Asia/Kolkata",
     enable_utc=True,
     task_track_started=True,
-    task_acks_late=True,                # re-queue on worker crash
-    worker_prefetch_multiplier=1,       # video jobs are heavy — one at a time
-    task_soft_time_limit=600,           # 10 min soft kill for runaway jobs
+    task_acks_late=True,  # re-queue on worker crash
+    worker_prefetch_multiplier=1,  # video jobs are heavy — one at a time
+    task_soft_time_limit=600,  # 10 min soft kill for runaway jobs
     task_time_limit=900,
 )

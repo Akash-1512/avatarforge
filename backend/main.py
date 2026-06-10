@@ -27,6 +27,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         env=settings.environment,
         version=settings.app_version,
     )
+    try:
+        from backend.models.db import init_db
+
+        await init_db()
+        logger.info("db_tables_ready")
+    except Exception as exc:  # noqa: BLE001 — app must boot even if DB is down
+        logger.warning("db_init_skipped", error=str(exc)[:200])
     yield
     logger.info("avatarforge_shutdown")
 

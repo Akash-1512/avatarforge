@@ -17,6 +17,9 @@ alembic==1.14.0
 # Observability
 structlog==24.4.0
 
+# LLM providers
+openai==1.59.5
+
 # Utilities
 python-multipart==0.0.20
 tenacity==9.0.0
