@@ -1,0 +1,40 @@
+"""Phase 1 verification tests — health endpoints and app wiring."""
+
+import pytest
+from fastapi.testclient import TestClient
+
+from backend.main import create_app
+
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(create_app())
+
+
+def test_health_returns_ok(client: TestClient) -> None:
+    resp = client.get("/api/v1/health")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["version"] == "0.1.0"
+    assert body["environment"] == "dev"
+
+
+def test_health_deep_reports_dependencies(client: TestClient) -> None:
+    """Without containers running, deep check must degrade gracefully — never 500."""
+    resp = client.get("/api/v1/health/deep")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "dependencies" in body
+    assert set(body["dependencies"].keys()) == {"redis", "postgres"}
+    assert body["status"] in {"ok", "degraded"}
+
+
+def test_openapi_docs_served(client: TestClient) -> None:
+    resp = client.get("/openapi.json")
+    assert resp.status_code == 200
+    assert resp.json()["info"]["title"] == "avatarforge API"
+
+
+def test_unknown_route_404(client: TestClient) -> None:
+    assert client.get("/api/v1/nonexistent").status_code == 404
