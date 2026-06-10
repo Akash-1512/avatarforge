@@ -1,0 +1,15 @@
+# Default: normalize to LF in repo, LF on checkout for code
+* text=auto eol=lf
+
+# Windows-specific files keep CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary — never touch
+*.png binary
+*.jpg binary
+*.mp4 binary
+*.wav binary
+*.pth binary
+*.zip binary
