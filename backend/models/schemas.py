@@ -42,3 +42,24 @@ class ScriptResponse(BaseModel):
     model: str
     latency_ms: int
     usage: TokenUsageInfo
+
+
+class TTSRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=5000)
+    voice: Literal[
+        "professional_female", "professional_male", "casual_female", "casual_male", "narrator"
+    ] = "professional_female"
+    speaking_rate: float = Field(1.0, ge=0.5, le=2.0)
+
+
+class TTSResponse(BaseModel):
+    audio_url: str
+    file_id: str
+    provider_used: str
+    model: str
+    voice: str
+    characters: int
+    audio_duration_sec: float
+    latency_ms: int
+    estimated_cost_usd: float
+    format: str

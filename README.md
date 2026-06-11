@@ -54,7 +54,7 @@ make logs     # tail all containers
 
 - [x] Phase 1 — Scaffold, Docker Compose, CI, health checks
 - [x] Phase 2 — LLM service (Azure OpenAI → OpenAI fallback, circuit breaker, token audit)
-- [ ] Phase 3 — TTS service (Azure Speech → OpenAI TTS fallback)
+- [x] Phase 3 — TTS service (Azure Speech → OpenAI TTS fallback, SSML, 16kHz mono output)
 - [ ] Phase 4 — SadTalker avatar engine + FFmpeg
 - [ ] Phase 5 — LangGraph pipeline + Celery jobs
 - [ ] Phase 6 — MLflow + Langfuse observability
