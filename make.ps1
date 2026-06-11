@@ -3,7 +3,7 @@
 
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("dev", "down", "test", "lint", "format", "build", "logs", "smoke", "models", "clean", "help")]
+    [ValidateSet("dev", "down", "test", "lint", "format", "build", "logs", "smoke", "models", "migrate", "clean", "help")]
     [string]$Task = "help"
 )
 
@@ -23,6 +23,9 @@ switch ($Task) {
     }
     "models" {
         docker compose run --rm sadtalker python download_models.py
+    }
+    "migrate" {
+        docker compose run --rm --no-deps --entrypoint "" api sh -c 'cd /app/backend && alembic upgrade head'
     }
     "lint" {
         Push-Location backend
@@ -56,6 +59,7 @@ switch ($Task) {
         Write-Host "  .\make.ps1 down     Stop all containers"
         Write-Host "  .\make.ps1 test     Run unit tests inside the api container"
         Write-Host "  .\make.ps1 models   Download SadTalker checkpoints (~4GB, one-time)"
+        Write-Host "  .\make.ps1 migrate  Apply database migrations (Alembic)"
         Write-Host "  .\make.ps1 lint     Run linters (venv)"
         Write-Host "  .\make.ps1 format   Auto-format code (venv)"
         Write-Host "  .\make.ps1 build    Build images without starting"

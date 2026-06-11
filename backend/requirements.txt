@@ -17,6 +17,9 @@ alembic==1.14.0
 # Observability
 structlog==24.4.0
 
+# Pipeline orchestration
+langgraph==1.1.10
+
 # LLM providers
 openai==1.59.5
 

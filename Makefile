@@ -14,6 +14,9 @@ test:           ## Run unit tests with coverage (inside the api container)
 models:         ## Download SadTalker checkpoints (~4GB, one-time)
 	docker compose run --rm sadtalker python download_models.py
 
+migrate:        ## Apply database migrations
+	docker compose run --rm --no-deps --entrypoint "" api sh -c 'cd /app/backend && alembic upgrade head'
+
 lint:           ## Run all linters
 	cd backend && black --check . && isort --check-only . && flake8 . && mypy . --ignore-missing-imports
 

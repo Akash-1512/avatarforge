@@ -71,7 +71,7 @@ services:
     volumes:
       - sadtalker-models:/models/sadtalker
     environment:
-      - INFERENCE_TIMEOUT_SEC=900
+      - INFERENCE_TIMEOUT_SEC=1800
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8001/health"]
       interval: 30s
