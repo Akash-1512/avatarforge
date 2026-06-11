@@ -15,18 +15,9 @@ from typing import Awaitable, Callable, List, Optional
 from pydantic import ValidationError
 
 from backend.config import get_settings
-from backend.models.schemas import (
-    ScriptPayload,
-    ScriptRequest,
-    ScriptResponse,
-    TokenUsageInfo,
-)
+from backend.models.schemas import ScriptPayload, ScriptRequest, ScriptResponse, TokenUsageInfo
 from backend.observability.logging import get_logger
-from backend.services.llm.base import (
-    AllProvidersFailedError,
-    BaseLLMProvider,
-    LLMProviderError,
-)
+from backend.services.llm.base import AllProvidersFailedError, BaseLLMProvider, LLMProviderError
 from backend.services.llm.circuit_breaker import CircuitBreaker
 from backend.services.llm.prompts import SCRIPT_SYSTEM_PROMPT, build_script_user_prompt
 from backend.services.llm.providers import AzureOpenAIProvider, OpenAIProvider
