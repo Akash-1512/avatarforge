@@ -16,11 +16,7 @@ from backend.services.common.circuit_breaker import CircuitBreaker
 from backend.services.storage.base import BaseStorageBackend
 from backend.services.storage.local import get_storage
 from backend.services.tts.audio import normalize_to_sadtalker_spec, wav_duration_seconds
-from backend.services.tts.base import (
-    AllTTSProvidersFailedError,
-    BaseTTSProvider,
-    TTSProviderError,
-)
+from backend.services.tts.base import AllTTSProvidersFailedError, BaseTTSProvider, TTSProviderError
 from backend.services.tts.providers import AzureSpeechProvider, OpenAITTSProvider
 
 logger = get_logger(__name__)
