@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     # ── SadTalker (Phase 4) ──────────────────────────────
     sadtalker_checkpoint_dir: str = "/models/sadtalker"
     sadtalker_device: Literal["cpu", "cuda"] = "cpu"
+    sadtalker_url: str = "http://sadtalker:8001"
+    avatar_inference_timeout_sec: float = 900.0
 
 
 @lru_cache

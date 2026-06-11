@@ -63,3 +63,15 @@ class TTSResponse(BaseModel):
     latency_ms: int
     estimated_cost_usd: float
     format: str
+
+
+class AvatarResponse(BaseModel):
+    video_url: str
+    file_id: str
+    video_duration_sec: float
+    width: int
+    height: int
+    codec: str
+    latency_ms: int
+    preprocess: str
+    enhancer: bool
