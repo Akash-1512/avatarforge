@@ -57,7 +57,7 @@ make logs     # tail all containers
 - [x] Phase 2 — LLM service (Azure OpenAI → OpenAI fallback, circuit breaker, token audit)
 - [x] Phase 3 — TTS service (Azure Speech → OpenAI TTS fallback, SSML, 16kHz mono output)
 - [x] Phase 4 — SadTalker avatar engine (model-server pattern) + FFmpeg packaging
-- [ ] Phase 5 — LangGraph pipeline + Celery jobs
+- [x] Phase 5 — LangGraph async pipeline (5 nodes, RetryPolicy, DLQ, SSE progress) + Alembic
 - [ ] Phase 6 — MLflow + Langfuse observability
 - [ ] Phase 7 — React dashboard
 - [ ] Phase 8 — v1.0.0 release

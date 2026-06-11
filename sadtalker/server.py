@@ -8,6 +8,8 @@ and auditing live in the main backend; this container only does ML.
 import os
 import shutil
 import subprocess
+import time
+from collections import deque
 import tempfile
 import uuid
 from pathlib import Path
@@ -81,13 +83,30 @@ async def infer(
         if enhancer:
             cmd += ["--enhancer", "gfpgan"]
 
-        proc = subprocess.run(
-            cmd, cwd=SADTALKER_DIR, capture_output=True, text=True,
-            timeout=INFERENCE_TIMEOUT_SEC,
+        # Stream inference output to container logs in real time so progress
+        # is observable via `docker logs -f`; keep a tail for error reporting.
+        proc = subprocess.Popen(
+            cmd, cwd=SADTALKER_DIR,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1,
         )
+        tail: deque[str] = deque(maxlen=80)
+        started = time.monotonic()
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            print(f"[infer {job_id[:8]}] {line.rstrip()}", flush=True)
+            tail.append(line)
+            if time.monotonic() - started > INFERENCE_TIMEOUT_SEC:
+                proc.kill()
+                raise HTTPException(
+                    status_code=504,
+                    detail=f"Inference exceeded {INFERENCE_TIMEOUT_SEC}s timeout",
+                )
+        proc.wait()
         if proc.returncode != 0:
-            tail = (proc.stderr or proc.stdout)[-600:]
-            raise HTTPException(status_code=500, detail=f"Inference failed: {tail}")
+            raise HTTPException(
+                status_code=500, detail=f"Inference failed: {''.join(tail)[-600:]}"
+            )
 
         videos = sorted(result_dir.rglob("*.mp4"), key=lambda p: p.stat().st_mtime)
         if not videos:
@@ -95,10 +114,6 @@ async def infer(
 
         return FileResponse(videos[-1], media_type="video/mp4", filename=f"{job_id}.mp4")
 
-    except subprocess.TimeoutExpired:
-        raise HTTPException(
-            status_code=504, detail=f"Inference exceeded {INFERENCE_TIMEOUT_SEC}s timeout"
-        )
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
         # result_dir is cleaned lazily; FileResponse needs the file to exist after return
