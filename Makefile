@@ -8,8 +8,11 @@ dev:            ## Start full stack (api, worker, flower, postgres, redis)
 down:           ## Stop all containers
 	docker compose down
 
-test:           ## Run unit tests with coverage
-	cd backend && python -m pytest tests/ -v --cov=. --cov-report=term-missing
+test:           ## Run unit tests with coverage (inside the api container)
+	docker compose run --rm --no-deps api python -m pytest backend/tests/ -v --cov=backend --cov-report=term-missing
+
+models:         ## Download SadTalker checkpoints (~4GB, one-time)
+	docker compose run --rm sadtalker python download_models.py
 
 lint:           ## Run all linters
 	cd backend && black --check . && isort --check-only . && flake8 . && mypy . --ignore-missing-imports

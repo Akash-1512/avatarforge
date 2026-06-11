@@ -21,6 +21,7 @@ git clone https://github.com/Akash-1512/avatarforge.git
 cd avatarforge
 cp .env.example .env        # add your API keys
 make dev                    # starts everything
+make models                 # one-time: download SadTalker checkpoints (~4GB)
 ```
 
 | Service | URL |
@@ -55,7 +56,7 @@ make logs     # tail all containers
 - [x] Phase 1 — Scaffold, Docker Compose, CI, health checks
 - [x] Phase 2 — LLM service (Azure OpenAI → OpenAI fallback, circuit breaker, token audit)
 - [x] Phase 3 — TTS service (Azure Speech → OpenAI TTS fallback, SSML, 16kHz mono output)
-- [ ] Phase 4 — SadTalker avatar engine + FFmpeg
+- [x] Phase 4 — SadTalker avatar engine (model-server pattern) + FFmpeg packaging
 - [ ] Phase 5 — LangGraph pipeline + Celery jobs
 - [ ] Phase 6 — MLflow + Langfuse observability
 - [ ] Phase 7 — React dashboard
