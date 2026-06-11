@@ -1,0 +1,3 @@
+# Optional: DeepEval-based eval suite (heavy dep tree — not in runtime image)
+-r requirements.txt
+deepeval==3.7.6

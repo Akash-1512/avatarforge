@@ -14,6 +14,9 @@ test:           ## Run unit tests with coverage (inside the api container)
 models:         ## Download SadTalker checkpoints (~4GB, one-time)
 	docker compose run --rm sadtalker python download_models.py
 
+eval:           ## Run the script-generation eval harness (regression gate)
+	docker compose run --rm --no-deps api python -m backend.evals.runner $(EVAL_ARGS)
+
 migrate:        ## Apply database migrations
 	docker compose run --rm --no-deps --entrypoint "" api sh -c 'cd /app/backend && alembic upgrade head'
 

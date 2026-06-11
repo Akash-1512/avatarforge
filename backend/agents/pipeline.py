@@ -17,6 +17,7 @@ from langgraph.types import RetryPolicy
 from backend.agents.nodes import PipelineNodes
 from backend.agents.state import VideoPipelineState
 from backend.config import get_settings
+from backend.observability import tracking
 from backend.observability.logging import get_logger
 from backend.services.avatar.client import AvatarEngineError
 from backend.services.tts.base import AllTTSProvidersFailedError
@@ -88,15 +89,31 @@ async def run_pipeline(job_id: str, nodes: PipelineNodes, repo) -> dict:
     graph = build_graph(nodes)
     started = time.monotonic()
     try:
-        await graph.ainvoke(state)
+        final = await graph.ainvoke(state)
         total_ms = int((time.monotonic() - started) * 1000)
         logger.info("pipeline_succeeded", job_id=job_id, total_ms=total_ms)
+        tracking.log_job_run(
+            job_id,
+            status="completed",
+            topic=job.topic,
+            stage_timings=final.get("stage_timings", {}),
+            llm_provider=final.get("llm_provider"),
+            tts_provider=final.get("tts_provider"),
+            video_duration_sec=final.get("video_duration_sec", 0.0),
+        )
         return {"job_id": job_id, "status": "completed", "total_ms": total_ms}
     except Exception as exc:  # noqa: BLE001 — central terminal-failure handler
         failed_job = await repo.get(job_id)
         stage = (failed_job.current_stage if failed_job else None) or "unknown"
         await repo.fail(job_id, stage=stage, error_type=type(exc).__name__, error_message=str(exc))
         await push_dead_letter(job_id, type(exc).__name__, str(exc))
+        tracking.log_job_run(
+            job_id,
+            status="failed",
+            topic=job.topic,
+            stage_timings={},
+            error_type=type(exc).__name__,
+        )
         logger.error(
             "pipeline_failed",
             job_id=job_id,
