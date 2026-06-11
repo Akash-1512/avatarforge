@@ -16,6 +16,7 @@ from pydantic import ValidationError
 
 from backend.config import get_settings
 from backend.models.schemas import ScriptPayload, ScriptRequest, ScriptResponse, TokenUsageInfo
+from backend.observability import lf
 from backend.observability.logging import get_logger
 from backend.services.llm.base import AllProvidersFailedError, BaseLLMProvider, LLMProviderError
 from backend.services.llm.circuit_breaker import CircuitBreaker
@@ -61,6 +62,29 @@ class LLMService:
             await self.usage_recorder(payload)
         except Exception as exc:  # noqa: BLE001 — usage recording is best-effort
             logger.warning("usage_record_failed", error=str(exc))
+
+    async def complete_json_raw(self, system_prompt: str, user_prompt: str) -> str:
+        """Provider-failover JSON completion for auxiliary tasks (e.g. LLM-as-Judge).
+
+        Same fallback and circuit-breaker path as script generation, but
+        returns the raw JSON string and lets the caller validate shape.
+        """
+        last_error: Exception | None = None
+        for provider in self.providers:
+            breaker = self._breakers[provider.name]
+            if not breaker.allow():
+                continue
+            try:
+                result = await provider.complete_json(system_prompt, user_prompt)
+                breaker.record_success()
+                return result.content
+            except Exception as exc:  # noqa: BLE001 — try next provider
+                breaker.record_failure()
+                last_error = exc
+                logger.warning(
+                    "judge_provider_failed", provider=provider.name, error=str(exc)[:200]
+                )
+        raise AllProvidersFailedError(f"All providers failed: {last_error}")
 
     async def generate_script(self, request: ScriptRequest) -> ScriptResponse:
         user_prompt = build_script_user_prompt(
@@ -111,6 +135,17 @@ class LLMService:
                     model=result.model,
                     latency_ms=latency_ms,
                     segments=len(payload.segments),
+                )
+                lf.record_generation(
+                    name="generate_script",
+                    model=result.model,
+                    provider=provider.name,
+                    input_text=request.topic,
+                    output_text=payload.title,
+                    prompt_tokens=result.prompt_tokens,
+                    completion_tokens=result.completion_tokens,
+                    latency_ms=latency_ms,
+                    success=True,
                 )
                 return ScriptResponse(
                     title=payload.title,

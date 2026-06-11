@@ -58,7 +58,7 @@ make logs     # tail all containers
 - [x] Phase 3 — TTS service (Azure Speech → OpenAI TTS fallback, SSML, 16kHz mono output)
 - [x] Phase 4 — SadTalker avatar engine (model-server pattern) + FFmpeg packaging
 - [x] Phase 5 — LangGraph async pipeline (5 nodes, RetryPolicy, DLQ, SSE progress) + Alembic
-- [ ] Phase 6 — MLflow + Langfuse observability
+- [x] Phase 6 — MLflow tracking, Langfuse traces, eval harness (deterministic + LLM-as-Judge) with regression gate
 - [ ] Phase 7 — React dashboard
 - [ ] Phase 8 — v1.0.0 release
 

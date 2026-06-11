@@ -54,7 +54,14 @@ class Settings(BaseSettings):
     sadtalker_checkpoint_dir: str = "/models/sadtalker"
     sadtalker_device: Literal["cpu", "cuda"] = "cpu"
     sadtalker_url: str = "http://sadtalker:8001"
-    avatar_inference_timeout_sec: float = 1800.0
+    avatar_inference_timeout_sec: float = 2700.0
+
+    # ── Observability (Phase 6) ─────────────────────────
+    mlflow_tracking_uri: str = ""  # e.g. http://mlflow:5000; empty disables
+    mlflow_experiment: str = "avatarforge"
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"
 
 
 @lru_cache
