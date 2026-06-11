@@ -19,11 +19,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r backend/requirements-dev.txt
       - name: Black
-        run: black --check backend/
+        run: black --check .
+        working-directory: backend
       - name: isort
-        run: isort --check-only backend/
+        run: isort --check-only .
+        working-directory: backend
       - name: Flake8
-        run: flake8 backend/
+        run: flake8 .
+        working-directory: backend
 
   test:
     runs-on: ubuntu-latest
