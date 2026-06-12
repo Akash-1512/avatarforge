@@ -1,0 +1,23 @@
+# Run once after deploy (and after every schema change):
+#   kubectl -n avatarforge delete job migrate --ignore-not-found
+#   kubectl -n avatarforge apply -f k8s/50-migrate-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: avatarforge
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: avatarforge-api:latest
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "cd /app/backend && alembic upgrade head"]
+          envFrom:
+            - configMapRef:
+                name: avatarforge-config
+            - secretRef:
+                name: avatarforge-secrets

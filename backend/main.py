@@ -9,7 +9,10 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi.extension import _rate_limit_exceeded_handler
 
+from backend.api.ratelimit import build_limiter
 from backend.api.v1.router import api_router
 from backend.config import get_settings
 from backend.observability.logging import configure_logging, get_logger
@@ -50,6 +53,10 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
     )
+
+    # Rate limiting: per-IP, settings-driven, disabled in tests
+    app.state.limiter = build_limiter()
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     app.add_middleware(
         CORSMiddleware,

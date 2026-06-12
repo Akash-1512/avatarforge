@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"
 
+    # ── API protection (Phase 7) ────────────────────────
+    rate_limit_enabled: bool = True
+    rate_limit_default: str = "60/minute"
+    rate_limit_generate: str = "5/minute"  # video jobs are expensive; throttle hard
+
 
 @lru_cache
 def get_settings() -> Settings:
