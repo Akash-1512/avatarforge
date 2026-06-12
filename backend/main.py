@@ -47,11 +47,38 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="avatarforge API",
-        description="AI avatar video generation — script, voice, and lip-sync pipeline",
+        description=(
+            "AI avatar video generation — script, voice, and lip-sync pipeline.\n\n"
+            "Typical flow: `POST /videos/generate` with a photo and topic, get a "
+            "`job_id` back in milliseconds, then poll `GET /jobs/{id}` or stream "
+            "`GET /jobs/{id}/events` (SSE) until the job completes with a `video_url`. "
+            "See `docs/INTEGRATION.md` in the repo for the full contract."
+        ),
         version=settings.app_version,
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
+        openapi_tags=[
+            {
+                "name": "videos",
+                "description": "Async video jobs — submit, track, stream progress.",
+            },
+            {
+                "name": "script",
+                "description": "LLM script generation (Azure OpenAI, OpenAI fallback).",
+            },
+            {
+                "name": "tts",
+                "description": "Speech synthesis (Azure Speech, OpenAI fallback).",
+            },
+            {
+                "name": "avatar",
+                "description": "Synchronous talking-head generation; prefer /videos/generate.",
+            },
+            {"name": "media", "description": "Generated file serving (WAV/MP4)."},
+            {"name": "metrics", "description": "Operational metrics computed from audit tables."},
+            {"name": "health", "description": "Liveness and dependency checks."},
+        ],
     )
 
     # Rate limiting: per-IP, settings-driven, disabled in tests
