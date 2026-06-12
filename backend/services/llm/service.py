@@ -27,6 +27,7 @@ logger = get_logger(__name__)
 
 # USD per 1M tokens (input, output) — used for cost attribution, not billing
 _PRICE_MAP = {
+    "gpt-4.1-mini": (0.40, 1.60),
     "gpt-4o-mini": (0.15, 0.60),
     "gpt-4o": (2.50, 10.00),
 }
@@ -71,8 +72,8 @@ class LLMService:
         """
         last_error: Exception | None = None
         for provider in self.providers:
-            breaker = self._breakers[provider.name]
-            if not breaker.allow():
+            breaker = self.breakers[provider.name]
+            if not breaker.allow_request():
                 continue
             try:
                 result = await provider.complete_json(system_prompt, user_prompt)
