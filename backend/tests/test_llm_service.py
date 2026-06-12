@@ -163,3 +163,37 @@ def test_cost_estimation():
     assert estimate_cost_usd("gpt-4o-mini-2024", 1_000_000, 0) == 0.15
     assert estimate_cost_usd("gpt-4o-mini", 0, 1_000_000) == 0.60
     assert estimate_cost_usd("unknown-model", 1000, 1000) == 0.0
+
+
+class FakeJsonProvider:
+    """Minimal provider for exercising complete_json_raw on the REAL class."""
+
+    name = "azure_openai"
+
+    def __init__(self, content='{"ok": true}', fail=False):
+        self._content = content
+        self._fail = fail
+
+    async def complete_json(self, system_prompt, user_prompt):
+        if self._fail:
+            raise RuntimeError("provider down")
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            content=self._content, model="fake", prompt_tokens=1, completion_tokens=1
+        )
+
+
+@pytest.mark.asyncio
+async def test_complete_json_raw_uses_real_internals():
+    """Guards against drift between auxiliary paths and real class internals."""
+    svc = LLMService([FakeJsonProvider()])
+    out = await svc.complete_json_raw("sys", "user")
+    assert out == '{"ok": true}'
+
+
+@pytest.mark.asyncio
+async def test_complete_json_raw_raises_when_all_fail():
+    svc = LLMService([FakeJsonProvider(fail=True)])
+    with pytest.raises(AllProvidersFailedError):
+        await svc.complete_json_raw("sys", "user")

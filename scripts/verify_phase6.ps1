@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 $base = "http://localhost:8000/api/v1"
 
 Write-Host "`n[1/4] MLflow server health..." -ForegroundColor Cyan
-$mlflow = Invoke-WebRequest "http://localhost:5000/health" -UseBasicParsing
+$mlflow = Invoke-WebRequest "http://127.0.0.1:5000/health" -UseBasicParsing
 Write-Host "  MLflow: HTTP $($mlflow.StatusCode)  UI: http://localhost:5000"
 
 Write-Host "`n[2/4] Run eval harness (3 cases, judge on -> ~6 real LLM calls, ~`$0.003)..." -ForegroundColor Cyan
