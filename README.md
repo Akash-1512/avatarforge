@@ -1,67 +1,137 @@
 # avatarforge
 
-> AI avatar video generation platform — type a topic, get a talking-head video.
-> FastAPI · LangGraph · Azure OpenAI · SadTalker · Celery · Zero-budget stack.
+Self-hosted AI avatar video platform — the HeyGen workflow, rebuilt as a
+production-grade backend. Photo + topic in, talking-head MP4 out, with the
+full engineering layer real products need: async job orchestration, provider
+fallback, cost auditing, observability, and an LLM evaluation harness.
 
-[![CI](https://github.com/Akash-1512/avatarforge/actions/workflows/ci.yml/badge.svg)](https://github.com/Akash-1512/avatarforge/actions)
-![Python](https://img.shields.io/badge/python-3.11-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+**Scope, honestly stated:** this is the AI backend and platform swimlane of a
+client-style build. Frontend, auth, and billing are deliberately out of scope
+(see [Production readiness](#production-readiness)). The avatar engine is
+swappable by design — SadTalker runs here at zero cost; the architecture
+doesn't change when you plug in a better one.
 
-## What it does
-
-1. **Script** — Azure OpenAI generates a time-segmented video script from your topic (OpenAI fallback)
-2. **Voice** — Azure Speech synthesizes natural speech with SSML control (OpenAI TTS fallback)
-3. **Avatar** — SadTalker lip-syncs your photo to the audio, FFmpeg packages the MP4
-4. **Pipeline** — LangGraph orchestrates the flow, Celery runs it async, full observability via MLflow + Langfuse
-
-## Quick start
-
-```bash
-git clone https://github.com/Akash-1512/avatarforge.git
-cd avatarforge
-cp .env.example .env        # add your API keys
-make dev                    # starts everything
-make models                 # one-time: download SadTalker checkpoints (~4GB)
+```
+topic ──► LLM script ──► neural TTS ──► lip-sync inference ──► H.264 MP4
+          (Azure OpenAI    (Azure Speech    (SadTalker model
+           → OpenAI         → OpenAI TTS     server, isolated
+           fallback)         fallback)       container)
 ```
 
-| Service | URL |
+## What this demonstrates
+
+| Engineering concern | Implementation |
 |---|---|
-| API docs | http://localhost:8000/docs |
-| Flower (job dashboard) | http://localhost:5555 |
-| Health check | http://localhost:8000/api/v1/health |
+| Async orchestration | 5-node LangGraph pipeline (script → tts → avatar → store → notify) on Celery; jobs return `202` in ~300ms while ~30min of CPU inference runs in the background |
+| Resilience | Per-provider circuit breakers, multi-provider fallback (LLM and TTS), node-level `RetryPolicy` with an explicit transient-only allowlist, Redis dead-letter queue, orphaned-job guard |
+| Heavy-ML isolation | SadTalker runs as a dedicated model-server container behind an HTTP contract — swap engines without touching the pipeline |
+| LLMOps | MLflow run per job with nested per-stage runs; optional Langfuse generation traces; eval harness with 5 deterministic metrics + LLM-as-Judge (G-Eval pattern) acting as a prompt-regression gate |
+| Cost discipline | Every AI call audited to Postgres with token counts and USD estimates; `GET /metrics/summary` computes provider success/fallback rates and spend from those rows. Entire build + verification ran on **under $0.01** of LLM spend |
+| Data layer | Alembic async migrations as schema source of truth; SQLAlchemy 2.0 async throughout |
+| API protection | Per-IP rate limiting (5/min on generation — each request is ~30min of CPU; unthrottled, that's a denial-of-wallet bug) |
+| Kubernetes | Full manifest set (probes, resource limits, ConfigMap/Secret split, migration Job), schema-validated, deployable to kind, AKS-shaped |
+| Live progress | Server-Sent Events stream per job, closes on terminal status |
 
-## Architecture
+## Real numbers from this machine
 
-```
-Topic ──► [Script Node] ──► [TTS Node] ──► [Avatar Node] ──► [Storage] ──► MP4
-            Azure OpenAI      Azure Speech    SadTalker         local/blob
-            ↓ fallback        ↓ fallback      + FFmpeg
-            OpenAI            OpenAI TTS
-```
+| metric | value |
+|---|---|
+| Job submission latency | 310ms to `202` |
+| Script generation (gpt-4.1-mini) | 1.5–6s, ~$0.0002/script |
+| TTS (Azure Speech F0) | ~1.7s for 14s of speech, $0 |
+| Avatar inference (CPU, 256px) | ~28min for a 15s video (~12.7 s/frame) |
+| Eval harness — LLM-as-Judge | 4.75/5 overall (flow 5.0, tone 5.0, naturalness 4.67, hook 4.33) |
+| Eval harness — deterministic | duration accuracy 0.996, pacing 1.0, speakability 1.0 |
+| Tests | 99 passing |
 
-Orchestrated by **LangGraph** state machine · executed by **Celery** workers · traced in **MLflow + Langfuse**.
+The judge also surfaced real weaknesses: scripts run slightly word-light for
+their claimed durations (`spoken_duration_consistency` 0.65), and one opener
+scored 3/5 on hook strength. That's the point of the harness — measurable
+prompt problems instead of vibes.
 
-## Development
+## Quickstart
+
+Prereqs: Docker, an Azure OpenAI deployment, an Azure Speech resource (F0 free
+tier works). Copy `.env.example` to `.env` and fill in keys.
 
 ```bash
-make test     # pytest with coverage
-make lint     # black, isort, flake8, mypy
-make format   # auto-format
-make smoke    # fire a Celery round-trip test
-make logs     # tail all containers
+make dev        # api, worker, flower, sadtalker, mlflow, postgres, redis
+make models     # one-time ~4GB SadTalker checkpoint download
+make migrate    # alembic upgrade head
 ```
 
-## Project status
+Windows: same targets via `.\make.ps1 dev` etc.
 
-- [x] Phase 1 — Scaffold, Docker Compose, CI, health checks
-- [x] Phase 2 — LLM service (Azure OpenAI → OpenAI fallback, circuit breaker, token audit)
-- [x] Phase 3 — TTS service (Azure Speech → OpenAI TTS fallback, SSML, 16kHz mono output)
-- [x] Phase 4 — SadTalker avatar engine (model-server pattern) + FFmpeg packaging
-- [x] Phase 5 — LangGraph async pipeline (5 nodes, RetryPolicy, DLQ, SSE progress) + Alembic
-- [x] Phase 6 — MLflow tracking, Langfuse traces, eval harness (deterministic + LLM-as-Judge) with regression gate
-- [x] Phase 7 — CI/CD (lint, test, docker, k8s-validate, eval gate), K8s manifests, rate limiting, Key Vault-ready secrets
-- [ ] Phase 8 — v1.0.0 release
+Generate a video:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/videos/generate \
+  -F image=@face.jpg \
+  -F topic="One reason morning walks improve focus" \
+  -F duration_seconds=15
+# → {"job_id": "...", "status": "queued", ...}
+
+curl http://localhost:8000/api/v1/jobs/<job_id>            # poll
+curl -N http://localhost:8000/api/v1/jobs/<job_id>/events  # or stream
+```
+
+Consoles: API docs `:8000/docs` · Flower `:5555` · MLflow `:5000` ·
+SadTalker health `:8001/health`
+
+Quality gates (run locally before merging — keys stay off GitHub by design):
+
+```bash
+make lint && make test    # always
+make eval                 # when touching prompts or eval logic; exits non-zero below thresholds
+```
+
+Kubernetes: `./scripts/deploy-kind.ps1` loads images into a kind cluster,
+applies `k8s/`, creates secrets from `.env`, and runs migrations.
+
+## Build phases
+
+- [x] Phase 1 — FastAPI + Celery + Postgres + Redis scaffold, health checks, structured logging
+- [x] Phase 2 — LLM script service: Azure OpenAI → OpenAI fallback, circuit breaker, token/cost audit
+- [x] Phase 3 — TTS: Azure Speech → OpenAI fallback, SSML escaping, loudness-normalized 16kHz WAV
+- [x] Phase 4 — SadTalker avatar engine (model-server pattern) + FFmpeg H.264 packaging
+- [x] Phase 5 — LangGraph async pipeline, RetryPolicy, DLQ, SSE progress, Alembic
+- [x] Phase 6 — MLflow tracking, Langfuse traces, eval harness with regression gate
+- [x] Phase 7 — Kubernetes manifests, rate limiting, Key Vault-ready secrets
+- [x] Phase 8 — Integration contract, OpenAPI polish, v1.0.0
+
+## Upgrading the avatar engine
+
+SadTalker (2023) is the zero-budget engine. The model server exposes one
+`/infer` endpoint; the rest of the system doesn't know or care what's behind
+it. Realistic upgrade paths, in effort order:
+
+1. **GPU** — CUDA cuts the ~28min CPU render to roughly a minute, same engine
+2. **Newer open models** — Hallo2 / Sonic / EchoMimic (2024+) for visibly
+   better motion; diffusion-based, GPU required
+3. **Commercial API** — D-ID or similar as a premium engine (~$0.10–0.30/video)
+
+## Production readiness
+
+This build draws a deliberate line. Implemented: everything above. A real
+deployment would add, in rough priority order — authentication and per-user
+isolation, TLS and network policies, blob/object storage for media (the RWO
+volume currently caps api/worker at one node each), CI/CD with gated merges,
+Azure Key Vault via CSI driver + workload identity (the env-var indirection
+makes this config-only — see `docs/SECURITY.md`), alerting and SLOs on top of
+the existing metrics, multi-environment promotion, and backup/DR. None of
+these require re-architecting; the seams exist.
+
+## Documentation
+
+- [`docs/INTEGRATION.md`](docs/INTEGRATION.md) — the API contract for consuming teams, error catalogue included
+- [`docs/SECURITY.md`](docs/SECURITY.md) — secrets posture and the Key Vault path
+
+## Stack
+
+FastAPI · LangGraph 1.x · Celery · PostgreSQL · Redis · SadTalker · FFmpeg ·
+Azure OpenAI · Azure Speech · MLflow · Langfuse · SQLAlchemy 2 async · Alembic
+· slowapi · Docker Compose · Kubernetes · pytest (99 tests)
 
 ## License
 
-MIT © Akash Chaudhari
+MIT
