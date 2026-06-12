@@ -9,9 +9,10 @@ import asyncio
 import json
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
+from backend.api.ratelimit import build_limiter
 from backend.config import get_settings
 from backend.services.avatar.validation import ImageValidationError, validate_source_image
 from backend.services.jobs.repository import JobRepository, get_job_repository
@@ -38,8 +39,13 @@ def _job_payload(job) -> dict:
     }
 
 
+_generate_limiter = build_limiter()
+
+
 @router.post("/videos/generate", status_code=202)
+@_generate_limiter.limit(lambda: get_settings().rate_limit_generate)
 async def submit_video_job(
+    request: Request,
     image: UploadFile = File(..., description="Front-facing photo, PNG/JPEG, min 256px"),
     topic: str = Form(..., min_length=3, max_length=500),
     tone: Literal["professional", "casual", "enthusiastic", "formal", "friendly"] = Form(

@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: avatarforge
+resources:
+  - 00-namespace.yaml
+  - 01-configmap.yaml
+  - 10-postgres.yaml
+  - 11-redis.yaml
+  - 20-sadtalker.yaml
+  - 30-api.yaml
+  - 31-worker.yaml
+  - 40-mlflow.yaml
+# 02-secret.yaml is created manually (see 02-secret.example.yaml)
+# 50-migrate-job.yaml is applied explicitly after deploy

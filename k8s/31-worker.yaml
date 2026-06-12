@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: avatarforge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: avatarforge-worker:latest
+          imagePullPolicy: IfNotPresent
+          command: ["celery", "-A", "backend.workers.celery_app:celery_app", "worker", "--loglevel=info", "--concurrency=1"]
+          envFrom:
+            - configMapRef:
+                name: avatarforge-config
+            - secretRef:
+                name: avatarforge-secrets
+          volumeMounts:
+            - name: media
+              mountPath: /data/media
+          resources:
+            requests: {cpu: 250m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-data

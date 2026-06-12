@@ -11,3 +11,6 @@ import tempfile
 # Must happen before backend.config.get_settings() is first called anywhere.
 _TEST_MEDIA_DIR = tempfile.mkdtemp(prefix="avatarforge-test-media-")
 os.environ["LOCAL_STORAGE_PATH"] = _TEST_MEDIA_DIR
+
+# Rate limiting off by default in tests; test_ratelimit re-enables explicitly.
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")

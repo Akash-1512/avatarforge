@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: avatarforge-config
+  namespace: avatarforge
+data:
+  DATABASE_URL: postgresql+asyncpg://avatarforge:avatarforge@postgres:5432/avatarforge
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+  SADTALKER_URL: http://sadtalker:8001
+  MLFLOW_TRACKING_URI: http://mlflow:5000
+  AVATAR_INFERENCE_TIMEOUT_SEC: "2700"
+  AZURE_OPENAI_ENDPOINT: https://avatarforge-openai-eastus2.openai.azure.com/
+  AZURE_OPENAI_DEPLOYMENT: gpt-4.1-mini
+  AZURE_OPENAI_API_VERSION: "2024-10-21"
+  AZURE_SPEECH_REGION: centralindia

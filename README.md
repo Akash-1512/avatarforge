@@ -59,7 +59,7 @@ make logs     # tail all containers
 - [x] Phase 4 — SadTalker avatar engine (model-server pattern) + FFmpeg packaging
 - [x] Phase 5 — LangGraph async pipeline (5 nodes, RetryPolicy, DLQ, SSE progress) + Alembic
 - [x] Phase 6 — MLflow tracking, Langfuse traces, eval harness (deterministic + LLM-as-Judge) with regression gate
-- [ ] Phase 7 — React dashboard
+- [x] Phase 7 — CI/CD (lint, test, docker, k8s-validate, eval gate), K8s manifests, rate limiting, Key Vault-ready secrets
 - [ ] Phase 8 — v1.0.0 release
 
 ## License
