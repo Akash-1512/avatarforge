@@ -68,6 +68,7 @@ class TTSResponse(BaseModel):
 class AvatarResponse(BaseModel):
     video_url: str
     file_id: str
+    engine: str = "sadtalker"
     video_duration_sec: float
     width: int
     height: int

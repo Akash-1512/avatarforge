@@ -29,6 +29,7 @@ def _job_payload(job) -> dict:
         "status": job.status,
         "current_stage": job.current_stage,
         "topic": job.topic,
+        "engine": getattr(job, "engine", "sadtalker"),
         "script_title": job.script_title,
         "video_url": job.video_url,
         "stage_timings_ms": job.stage_timings or {},
@@ -56,6 +57,7 @@ async def submit_video_job(
         "professional_female", "professional_male", "casual_female", "casual_male", "narrator"
     ] = Form("professional_female"),
     preprocess: Literal["crop", "resize", "full"] = Form("crop"),
+    engine: Literal["sadtalker", "hunyuan"] = Form(None),
     repo: JobRepository = Depends(get_job_repository),
 ) -> dict:
     """Queue a full video generation job. Returns a job_id immediately."""
@@ -65,6 +67,14 @@ async def submit_video_job(
     except ImageValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    from backend.services.avatar.client import AvatarEngineError
+    from backend.services.avatar.service import get_avatar_service
+
+    try:
+        engine_name, _ = get_avatar_service().resolve_engine(engine)
+    except AvatarEngineError as exc:
+        raise HTTPException(status_code=exc.status_code or 503, detail=str(exc)) from exc
+
     stored_image = await get_storage().save_bytes(image_bytes, ext)
     job = await repo.create(
         topic=topic,
@@ -73,6 +83,7 @@ async def submit_video_job(
         voice=voice,
         image_file_id=stored_image.file_id,
         preprocess=preprocess,
+        engine=engine_name,
     )
 
     from backend.workers.tasks import generate_video_task

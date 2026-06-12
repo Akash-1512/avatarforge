@@ -119,9 +119,33 @@ services:
       timeout: 3s
       retries: 10
 
+  # GPU quality engine — opt-in only: docker compose --profile gpu up -d hunyuan
+  # Typically NOT run here; deploy on a rented GPU (see docs/HUNYUAN_RUNPOD.md)
+  # and point HUNYUAN_URL at it instead.
+  hunyuan:
+    build: ./hunyuan
+    container_name: avatarforge-hunyuan
+    profiles: ["gpu"]
+    ports:
+      - "8002:8002"
+    environment:
+      - MODEL_BASE=/weights
+      - CPU_OFFLOAD=${HUNYUAN_CPU_OFFLOAD:-1}
+      - INFERENCE_TIMEOUT_SEC=3600
+    volumes:
+      - hunyuan-weights:/weights
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
 volumes:
   mlflow-data:
   pg-data:
   redis-data:
   media-data:
   sadtalker-models:
+  hunyuan-weights:

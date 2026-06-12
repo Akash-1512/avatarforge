@@ -37,6 +37,7 @@ class VideoJob(Base):
     voice: Mapped[str] = mapped_column(String(40), default="professional_female")
     image_file_id: Mapped[str] = mapped_column(String(64))
     preprocess: Mapped[str] = mapped_column(String(20), default="crop")
+    engine: Mapped[str] = mapped_column(String(20), default="sadtalker")
 
     # Outputs
     script_title: Mapped[str] = mapped_column(Text, nullable=True)

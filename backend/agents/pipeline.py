@@ -85,6 +85,7 @@ async def run_pipeline(job_id: str, nodes: PipelineNodes, repo) -> dict:
         voice=job.voice,
         image_file_id=job.image_file_id,
         preprocess=job.preprocess,
+        engine=getattr(job, "engine", "sadtalker"),
     )
     graph = build_graph(nodes)
     started = time.monotonic()

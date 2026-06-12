@@ -16,7 +16,9 @@ def test_health_returns_ok(client: TestClient) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["version"] == "0.1.0"
+    from backend.config import get_settings
+
+    assert body["version"] == get_settings().app_version
     assert body["environment"] == "dev"
 
 

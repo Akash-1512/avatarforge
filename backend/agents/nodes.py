@@ -65,7 +65,7 @@ class PipelineNodes:
         with open(image_path, "rb") as f:
             image_bytes = f.read()
         resp = await self.avatar.generate(
-            image_bytes, state.audio_file_id, preprocess=state.preprocess
+            image_bytes, state.audio_file_id, preprocess=state.preprocess, engine=state.engine
         )
         elapsed = int((time.monotonic() - started) * 1000)
         logger.info("node_avatar_done", job_id=state.job_id, ms=elapsed)

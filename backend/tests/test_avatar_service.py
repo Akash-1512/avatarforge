@@ -73,7 +73,7 @@ async def audio_id(storage):
 
 @pytest.mark.asyncio
 async def test_generate_happy_path(storage, audio_id):
-    svc = AvatarService(FakeClient(), storage)
+    svc = AvatarService({"sadtalker": FakeClient()}, storage)
     resp = await svc.generate(_face_png(), audio_id)
     assert resp.codec == "h264"
     assert resp.video_url.startswith("/api/v1/media/")
@@ -83,7 +83,7 @@ async def test_generate_happy_path(storage, audio_id):
 
 @pytest.mark.asyncio
 async def test_missing_audio_raises_not_found(storage):
-    svc = AvatarService(FakeClient(), storage)
+    svc = AvatarService({"sadtalker": FakeClient()}, storage)
     with pytest.raises(FileNotFoundError, match="not found"):
         await svc.generate(_face_png(), "0" * 32 + ".wav")
 
@@ -96,7 +96,7 @@ async def test_engine_error_recorded_and_reraised(storage, audio_id):
         recorded.append(payload)
 
     err = AvatarEngineError("model server down", status_code=503)
-    svc = AvatarService(FakeClient(fail=err), storage, usage_recorder=recorder)
+    svc = AvatarService({"sadtalker": FakeClient(fail=err)}, storage, usage_recorder=recorder)
     with pytest.raises(AvatarEngineError):
         await svc.generate(_face_png(), audio_id)
     assert len(recorded) == 1
@@ -110,7 +110,38 @@ async def test_success_recorded(storage, audio_id):
     async def recorder(payload):
         recorded.append(payload)
 
-    svc = AvatarService(FakeClient(), storage, usage_recorder=recorder)
+    svc = AvatarService({"sadtalker": FakeClient()}, storage, usage_recorder=recorder)
     await svc.generate(_face_png(), audio_id)
     assert recorded[0]["success"] is True
     assert recorded[0]["video_duration_sec"] >= 0.9
+
+
+@pytest.mark.asyncio
+async def test_engine_routing_explicit(storage, audio_id):
+    """Explicit engine choice routes to that engine's client."""
+    sad, hun = FakeClient(), FakeClient()
+    svc = AvatarService({"sadtalker": sad, "hunyuan": hun}, storage)
+
+    resp = await svc.generate(_face_png(), audio_id, engine="hunyuan")
+    assert resp.engine == "hunyuan"
+    assert hun.calls == 1 and sad.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_engine_routing_default(storage, audio_id):
+    """No engine specified -> default engine handles it."""
+    sad, hun = FakeClient(), FakeClient()
+    svc = AvatarService({"sadtalker": sad, "hunyuan": hun}, storage, default_engine="sadtalker")
+
+    resp = await svc.generate(_face_png(), audio_id)
+    assert resp.engine == "sadtalker"
+    assert sad.calls == 1 and hun.calls == 0
+
+
+def test_unconfigured_engine_raises_503(storage):
+    """Requesting an engine that isn't configured fails fast with 503."""
+    svc = AvatarService({"sadtalker": FakeClient()}, storage)
+    with pytest.raises(AvatarEngineError) as exc_info:
+        svc.resolve_engine("hunyuan")
+    assert exc_info.value.status_code == 503
+    assert "not configured" in str(exc_info.value)
