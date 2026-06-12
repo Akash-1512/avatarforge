@@ -14,6 +14,7 @@ class VideoPipelineState(BaseModel):
     voice: str = "professional_female"
     image_file_id: str
     preprocess: str = "crop"
+    engine: str = "sadtalker"
 
     # Produced along the way
     script_title: Optional[str] = None

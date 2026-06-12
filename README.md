@@ -42,7 +42,7 @@ topic ──► LLM script ──► neural TTS ──► lip-sync inference ─
 | Avatar inference (CPU, 256px) | ~28min for a 15s video (~12.7 s/frame) |
 | Eval harness — LLM-as-Judge | 4.75/5 overall (flow 5.0, tone 5.0, naturalness 4.67, hook 4.33) |
 | Eval harness — deterministic | duration accuracy 0.996, pacing 1.0, speakability 1.0 |
-| Tests | 99 passing |
+| Tests | 102 passing |
 
 The judge also surfaced real weaknesses: scripts run slightly word-light for
 their claimed durations (`spoken_duration_consistency` 0.65), and one opener
@@ -99,16 +99,25 @@ applies `k8s/`, creates secrets from `.env`, and runs migrations.
 - [x] Phase 7 — Kubernetes manifests, rate limiting, Key Vault-ready secrets
 - [x] Phase 8 — Integration contract, OpenAPI polish, v1.0.0
 
-## Upgrading the avatar engine
+## Avatar engines (v1.1: dual-engine)
 
-SadTalker (2023) is the zero-budget engine. The model server exposes one
-`/infer` endpoint; the rest of the system doesn't know or care what's behind
-it. Realistic upgrade paths, in effort order:
+The model-server contract (`/infer`: image + audio in, MP4 out) is the seam
+the whole system hangs on. v1.1 proves it by running two engines behind it:
 
-1. **GPU** — CUDA cuts the ~28min CPU render to roughly a minute, same engine
-2. **Newer open models** — Hallo2 / Sonic / EchoMimic (2024+) for visibly
-   better motion; diffusion-based, GPU required
-3. **Commercial API** — D-ID or similar as a premium engine (~$0.10–0.30/video)
+| engine | hardware | cost | output |
+|---|---|---|---|
+| `sadtalker` (default) | CPU, runs in compose | $0 | 2023-era talking head, head-and-shoulders |
+| `hunyuan` | NVIDIA GPU, 24GB+ (rented works) | ~$0.34–1.39/hr rented | HunyuanVideo-Avatar (Tencent, MM-DiT) — full-scene motion, natural expressions, ~5s clips |
+
+Pick per request (`engine=hunyuan` on `/videos/generate`) or set
+`AVATAR_DEFAULT_ENGINE`. Jobs, audit rows, MLflow runs, and
+`/metrics/summary` all carry the engine, so the tiers are separable in every
+metric. The pipeline, retries, DLQ, SSE — none of it changed to add the
+second engine; that was the point.
+
+Deploying the GPU engine on a rented pod (RunPod, by-the-second billing):
+[`docs/HUNYUAN_RUNPOD.md`](docs/HUNYUAN_RUNPOD.md). A commercial API (D-ID
+and similar, ~$0.10–0.30/video) would slot in the same way as a third engine.
 
 ## Production readiness
 
@@ -128,9 +137,9 @@ these require re-architecting; the seams exist.
 
 ## Stack
 
-FastAPI · LangGraph 1.x · Celery · PostgreSQL · Redis · SadTalker · FFmpeg ·
+FastAPI · LangGraph 1.x · Celery · PostgreSQL · Redis · SadTalker · HunyuanVideo-Avatar · FFmpeg ·
 Azure OpenAI · Azure Speech · MLflow · Langfuse · SQLAlchemy 2 async · Alembic
-· slowapi · Docker Compose · Kubernetes · pytest (99 tests)
+· slowapi · Docker Compose · Kubernetes · pytest (102 tests)
 
 ## License
 

@@ -12,8 +12,14 @@ class AvatarEngineError(Exception):
 
 
 class SadTalkerClient:
-    def __init__(self, settings: Settings):
-        self._base_url = settings.sadtalker_url.rstrip("/")
+    """HTTP client for any avatar model server speaking the /infer contract.
+
+    Named for the first engine it served; the contract is engine-agnostic
+    (HunyuanVideo-Avatar runs behind the same client with a different URL).
+    """
+
+    def __init__(self, settings: Settings, base_url: str | None = None):
+        self._base_url = (base_url or settings.sadtalker_url).rstrip("/")
         self._timeout = settings.avatar_inference_timeout_sec
 
     async def health(self) -> dict:

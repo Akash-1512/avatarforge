@@ -32,6 +32,7 @@ async def generate_avatar(
     audio_file_id: str = Form(..., description="WAV file id from /tts/synthesize"),
     preprocess: Literal["crop", "resize", "full"] = Form("crop"),
     enhancer: bool = Form(False),
+    engine: Literal["sadtalker", "hunyuan"] = Form(None),
     service: AvatarService = Depends(get_avatar_service),
 ) -> AvatarResponse:
     """Generate a talking-head video from a photo and synthesized audio.
@@ -41,7 +42,7 @@ async def generate_avatar(
     image_bytes = await image.read()
     try:
         return await service.generate(
-            image_bytes, audio_file_id, preprocess=preprocess, enhancer=enhancer
+            image_bytes, audio_file_id, preprocess=preprocess, enhancer=enhancer, engine=engine
         )
     except ImageValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

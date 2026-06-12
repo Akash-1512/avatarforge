@@ -16,6 +16,7 @@ class AvatarUsage(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
     audio_file_id: Mapped[str] = mapped_column(String(64))
+    engine: Mapped[str] = mapped_column(String(20), default="sadtalker")
     preprocess: Mapped[str] = mapped_column(String(20), default="crop")
     enhancer: Mapped[bool] = mapped_column(Boolean, default=False)
     video_duration_sec: Mapped[float] = mapped_column(Float, default=0.0)

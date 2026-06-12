@@ -24,15 +24,39 @@ UsageRecorder = Callable[[dict], Awaitable[None]]
 
 
 class AvatarService:
+    """Routes generation requests to a registry of engines.
+
+    Engines share one HTTP contract, so a single client class serves all of
+    them; the registry maps engine name -> configured client. Requesting an
+    engine that isn't configured is a 503-class error, not a crash.
+    """
+
     def __init__(
         self,
-        client: SadTalkerClient,
+        engines: dict[str, SadTalkerClient],
         storage: BaseStorageBackend,
         usage_recorder: Optional[UsageRecorder] = None,
+        default_engine: str = "sadtalker",
     ):
-        self.client = client
+        self.engines = engines
         self.storage = storage
         self.usage_recorder = usage_recorder
+        self.default_engine = default_engine
+
+    @property
+    def client(self) -> SadTalkerClient:
+        """Default-engine client (kept for health checks and back-compat)."""
+        return self.engines[self.default_engine]
+
+    def resolve_engine(self, engine: Optional[str]) -> tuple[str, SadTalkerClient]:
+        name = engine or self.default_engine
+        client = self.engines.get(name)
+        if client is None:
+            raise AvatarEngineError(
+                f"Avatar engine '{name}' is not configured. " f"Available: {sorted(self.engines)}",
+                status_code=503,
+            )
+        return name, client
 
     async def _record(self, payload: dict) -> None:
         if self.usage_recorder is None:
@@ -49,7 +73,9 @@ class AvatarService:
         *,
         preprocess: str = "crop",
         enhancer: bool = False,
+        engine: Optional[str] = None,
     ) -> AvatarResponse:
+        engine_name, client = self.resolve_engine(engine)
         image_ext = validate_source_image(image_bytes)
 
         audio_path = self.storage.resolve_path(audio_file_id)
@@ -62,7 +88,7 @@ class AvatarService:
 
         started = time.monotonic()
         try:
-            raw_video = await self.client.infer(
+            raw_video = await client.infer(
                 image_bytes,
                 image_ext,
                 audio_bytes,
@@ -90,6 +116,7 @@ class AvatarService:
                 duration_sec=meta["duration_sec"],
                 latency_ms=latency_ms,
                 resolution=f"{meta['width']}x{meta['height']}",
+                engine=engine_name,
             )
             return AvatarResponse(
                 video_url=stored.url,
@@ -101,6 +128,7 @@ class AvatarService:
                 latency_ms=latency_ms,
                 preprocess=preprocess,
                 enhancer=enhancer,
+                engine=engine_name,
             )
         except AvatarEngineError as exc:
             latency_ms = int((time.monotonic() - started) * 1000)
@@ -131,8 +159,12 @@ async def _db_usage_recorder(payload: dict) -> None:
 @lru_cache
 def get_avatar_service() -> AvatarService:
     settings = get_settings()
+    engines = {"sadtalker": SadTalkerClient(settings)}
+    if settings.hunyuan_url:
+        engines["hunyuan"] = SadTalkerClient(settings, base_url=settings.hunyuan_url)
     return AvatarService(
-        client=SadTalkerClient(settings),
+        engines=engines,
         storage=get_storage(),
         usage_recorder=_db_usage_recorder,
+        default_engine=settings.avatar_default_engine,
     )
