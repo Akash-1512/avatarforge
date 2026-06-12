@@ -19,7 +19,7 @@ switch ($Task) {
         docker compose down
     }
     "test" {
-        docker compose run --rm --no-deps api python -m pytest backend/tests/ -v --cov=backend --cov-report=term-missing
+        docker compose run --rm --no-deps --user root --entrypoint "" api sh -c "pip install -q -r backend/requirements-dev.txt && python -m pytest backend/tests/ -v --cov=backend --cov-report=term-missing"
     }
     "models" {
         docker compose run --rm sadtalker python download_models.py
@@ -28,7 +28,7 @@ switch ($Task) {
         docker compose run --rm --no-deps api python -m backend.evals.runner
     }
     "migrate" {
-        docker compose run --rm --no-deps --entrypoint "" api sh -c 'cd /app/backend && alembic upgrade head'
+        docker compose run --rm --no-deps --user root --entrypoint "" api sh -c 'cd /app/backend && alembic upgrade head'
     }
     "lint" {
         Push-Location backend
