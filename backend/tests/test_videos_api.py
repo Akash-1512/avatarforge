@@ -185,3 +185,44 @@ def test_from_prompt_plans_and_enqueues(app, monkeypatch):
     assert "job_id" in body
     assert body["plan"]["tone"] == "enthusiastic"
     assert app.state.enqueued  # task was queued
+
+
+def test_trace_endpoint_404_for_unknown(app, monkeypatch):
+    async def fake_build_trace(job_id, session_factory=None):
+        return {"found": False}
+
+    monkeypatch.setattr("backend.services.trace.service.build_trace", fake_build_trace)
+    client = TestClient(app)
+    resp = client.get("/api/v1/jobs/" + "z" * 32 + "/trace")
+    assert resp.status_code == 404
+
+
+def test_trace_endpoint_returns_stages(app, monkeypatch):
+    async def fake_build_trace(job_id, session_factory=None):
+        return {
+            "found": True,
+            "job_id": job_id,
+            "status": "completed",
+            "stages": [
+                {
+                    "stage": "script",
+                    "label": "Script generation",
+                    "provider": "azure_openai",
+                    "fell_back": False,
+                    "total_tokens": 420,
+                    "cost_usd": 0.0006,
+                    "latency_ms": 890,
+                    "success": True,
+                    "attempts": 1,
+                    "latency_pct": 100.0,
+                }
+            ],
+            "total_cost_usd": 0.0006,
+            "total_latency_ms": 890,
+        }
+
+    monkeypatch.setattr("backend.services.trace.service.build_trace", fake_build_trace)
+    client = TestClient(app)
+    body = client.get("/api/v1/jobs/" + "a" * 32 + "/trace").json()
+    assert body["stages"][0]["provider"] == "azure_openai"
+    assert body["total_cost_usd"] == 0.0006

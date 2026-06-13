@@ -198,6 +198,18 @@ async def from_prompt(
     return result
 
 
+@router.get("/jobs/{job_id}/trace")
+async def job_trace(job_id: str) -> dict:
+    """End-to-end trace for one job: each pipeline stage with the provider that
+    served it, tokens/chars, cost, latency, and whether a fallback fired."""
+    from backend.services.trace.service import build_trace
+
+    trace = await build_trace(job_id)
+    if not trace.get("found"):
+        raise HTTPException(status_code=404, detail="Job not found")
+    return trace
+
+
 @router.get("/jobs/{job_id}")
 async def get_job(job_id: str, repo: JobRepository = Depends(get_job_repository)) -> dict:
     job = await repo.get(job_id)

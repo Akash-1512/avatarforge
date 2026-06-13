@@ -152,7 +152,9 @@ async def _db_usage_recorder(payload: dict) -> None:
     from backend.models.db import get_session_factory
 
     async with get_session_factory()() as session:
-        session.add(AvatarUsage(**payload))
+        from backend.observability.trace_context import get_job_id
+
+        session.add(AvatarUsage(**payload, job_id=get_job_id()))
         await session.commit()
 
 

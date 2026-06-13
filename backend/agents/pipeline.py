@@ -73,6 +73,9 @@ async def push_dead_letter(job_id: str, error_type: str, error_message: str) -> 
 
 async def run_pipeline(job_id: str, nodes: PipelineNodes, repo) -> dict:
     """Load job, execute the graph, handle terminal failure centrally."""
+    from backend.observability.trace_context import set_job_id
+
+    set_job_id(job_id)  # correlation id for this run's audit rows
     job = await repo.get(job_id)
     if job is None:
         raise ValueError(f"Job {job_id} not found")
