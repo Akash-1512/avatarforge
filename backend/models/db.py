@@ -34,6 +34,24 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
     return _session_factory
 
 
+async def reset_engine() -> None:
+    """Dispose the current engine and clear cached factory.
+
+    asyncpg pools are bound to the event loop that created them. A Celery task
+    running under a fresh loop (asyncio.run per task) must not reuse a pool from
+    a prior loop, or queries raise "Future attached to a different loop". Calling
+    this at task entry forces a new engine + session factory bound to this loop.
+    """
+    global _engine, _session_factory
+    if _engine is not None:
+        try:
+            await _engine.dispose()
+        except Exception:  # noqa: BLE001 — best-effort teardown of a stale pool
+            pass
+    _engine = None
+    _session_factory = None
+
+
 async def init_db() -> None:
     """Create tables in dev. Safe to call repeatedly."""
     from backend.models import avatar_usage, job, tts_usage, usage  # noqa: F401 — register models

@@ -1,13 +1,20 @@
 # avatarforge
 
+[![CI](https://github.com/Akash-1512/avatarforge/actions/workflows/ci.yml/badge.svg)](https://github.com/Akash-1512/avatarforge/actions/workflows/ci.yml)
+![Tests](https://img.shields.io/badge/tests-144%20passing-5FD08A)
+![Coverage](https://img.shields.io/badge/coverage-89%25-5FD08A)
+![Python](https://img.shields.io/badge/python-3.11-3A322A)
+![License](https://img.shields.io/badge/license-MIT-FF8A3D)
+
 Self-hosted AI avatar video platform — the HeyGen workflow, rebuilt as a
 production-grade backend. Photo + topic in, talking-head MP4 out, with the
 full engineering layer real products need: async job orchestration, provider
 fallback, cost auditing, observability, and an LLM evaluation harness.
 
 **Scope, honestly stated:** this is the AI backend and platform swimlane of a
-client-style build. Frontend, auth, and billing are deliberately out of scope
-(see [Production readiness](#production-readiness)). The avatar engine is
+client-style build, plus an operator console that drives and observes it (auth
+and billing are deliberately out of scope — see
+[Production readiness](#production-readiness)). The avatar engine is
 swappable by design — SadTalker runs here at zero cost; the architecture
 doesn't change when you plug in a better one.
 
