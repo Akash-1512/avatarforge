@@ -62,3 +62,18 @@ async def test_list_recent_ordering(repo):
         await repo.create(topic=f"t{i}", image_file_id="img.png")
     jobs = await repo.list_recent(limit=2)
     assert len(jobs) == 2
+
+
+@pytest.mark.asyncio
+async def test_complete_persists_full_script(repo):
+    job = await repo.create(topic="t", image_file_id="img.png")
+    await repo.complete(
+        job.id,
+        script_title="My Title",
+        script="Line one. Line two. Line three.",
+        video_url="/api/v1/media/x.mp4",
+    )
+    got = await repo.get(job.id)
+    assert got.script == "Line one. Line two. Line three."
+    assert got.script_title == "My Title"
+    assert got.status == "completed"
