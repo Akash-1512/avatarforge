@@ -26,6 +26,10 @@ celery_app.conf.update(
     task_track_started=True,
     task_acks_late=True,  # re-queue on worker crash
     worker_prefetch_multiplier=1,  # video jobs are heavy — one at a time
-    task_soft_time_limit=600,  # 10 min soft kill for runaway jobs
-    task_time_limit=900,
+    # The task limits MUST exceed the avatar inference timeout, or Celery kills
+    # a render that the engine would have completed. Inference can take ~8 min
+    # (managed fal) to far longer (self-host GPU), so derive from the setting
+    # with headroom for the script + TTS + packaging stages around it.
+    task_soft_time_limit=int(settings.avatar_inference_timeout_sec) + 300,
+    task_time_limit=int(settings.avatar_inference_timeout_sec) + 600,
 )
