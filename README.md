@@ -126,6 +126,12 @@ the orchestration *visible*.
   full generated script shown on demand, plus its language, engine, voice, and
   length. The full narration is persisted on the job row (migration 0004), so a
   completed run is a durable, replayable record — not a one-shot download.
+- **Architecture view** — a system-design tab in the console: the request
+  lifecycle, the LangGraph pipeline, the planner agent, the three-model engine
+  registry, the provider fallback chains, and the observability rail, drawn as
+  an annotated diagram. It exists so a reviewer who won't open the code can still
+  see how the orchestration layer fits together. Every box maps to a real service
+  in this repo, and live/configured engines are highlighted from `/avatar/engines`.
 - **Per-job trace** — click any job in the Dashboard to expand its pipeline as a
   waterfall: each stage (script / voice / avatar) shows the provider that served
   it, token or character counts, cost, a proportional latency bar, and a
