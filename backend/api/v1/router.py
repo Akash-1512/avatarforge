@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from backend.api.v1 import avatar, health, media, metrics, script, tts, videos
+from backend.api.v1 import avatar, health, media, metrics, script, studio, tts, videos
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
@@ -12,3 +12,4 @@ api_router.include_router(media.router, tags=["media"])
 api_router.include_router(avatar.router, tags=["avatar"])
 api_router.include_router(videos.router, tags=["videos"])
 api_router.include_router(metrics.router, tags=["metrics"])
+api_router.include_router(studio.router, tags=["studio"])

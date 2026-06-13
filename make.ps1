@@ -3,7 +3,7 @@
 
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("dev", "down", "test", "lint", "format", "build", "logs", "smoke", "models", "migrate", "eval", "clean", "help")]
+    [ValidateSet("dev", "down", "test", "lint", "format", "build", "logs", "smoke", "models", "migrate", "eval", "eval-planner", "clean", "help")]
     [string]$Task = "help"
 )
 
@@ -26,6 +26,9 @@ switch ($Task) {
     }
     "eval" {
         docker compose run --rm --no-deps api python -m backend.evals.runner
+    }
+    "eval-planner" {
+        docker compose run --rm --no-deps api python -m backend.evals.planner_runner
     }
     "migrate" {
         docker compose run --rm --no-deps --entrypoint "" api sh -c 'cd /app/backend && alembic upgrade head'
@@ -64,6 +67,7 @@ switch ($Task) {
         Write-Host "  .\make.ps1 models   Download SadTalker checkpoints (~4GB, one-time)"
         Write-Host "  .\make.ps1 migrate  Apply database migrations (Alembic)"
         Write-Host "  .\make.ps1 eval     Run script-generation eval harness (regression gate)"
+        Write-Host "  .\make.ps1 eval-planner  Run planner-agent eval harness (agentic gate)"
         Write-Host "  .\make.ps1 lint     Run linters (venv)"
         Write-Host "  .\make.ps1 format   Auto-format code (venv)"
         Write-Host "  .\make.ps1 build    Build images without starting"

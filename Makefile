@@ -17,6 +17,9 @@ models:         ## Download SadTalker checkpoints (~4GB, one-time)
 eval:           ## Run the script-generation eval harness (regression gate)
 	docker compose run --rm --no-deps api python -m backend.evals.runner $(EVAL_ARGS)
 
+eval-planner:   ## Run the planner-agent eval harness (agentic regression gate)
+	docker compose run --rm --no-deps api python -m backend.evals.planner_runner $(EVAL_ARGS)
+
 migrate:        ## Apply database migrations
 	docker compose run --rm --no-deps --entrypoint "" api sh -c 'cd /app/backend && alembic upgrade head'
 

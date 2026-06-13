@@ -207,6 +207,49 @@
   .arch-card code{font-family:var(--mono);font-size:11.5px;color:var(--text);
     background:var(--base);padding:1px 5px;border-radius:4px}
 
+  /* assistant chat + memory */
+  .asst{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start}
+  @media(max-width:860px){.asst{grid-template-columns:1fr}}
+  .chat{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    display:flex;flex-direction:column;height:520px}
+  .chat-log{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:82%;padding:10px 13px;border-radius:12px;font-size:13.5px;line-height:1.5}
+  .msg.user{align-self:flex-end;background:var(--ember);color:#2a1606;border-bottom-right-radius:4px}
+  .msg.assistant{align-self:flex-start;background:var(--surface-2);color:var(--text);
+    border:1px solid var(--border);border-bottom-left-radius:4px}
+  .chat-empty{margin:auto;text-align:center;color:var(--faint);font-size:13px;max-width:300px;line-height:1.6}
+  .chat-bar{border-top:1px solid var(--border);padding:12px;display:flex;gap:9px}
+  .chat-bar input{flex:1;background:var(--base);border:1px solid var(--border);color:var(--text);
+    border-radius:9px;padding:10px 12px;font-size:13.5px}
+  .chat-bar input:focus{border-color:var(--ember);outline:none}
+  .chat-applied{font-family:var(--mono);font-size:10.5px;color:var(--faint);padding:0 18px 9px}
+  .memcard{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:17px}
+  .memcard h3{font-family:var(--display);font-size:13px;margin:0 0 4px;color:var(--text)}
+  .memcard .sub{font-size:11px;color:var(--faint);margin:0 0 14px;line-height:1.4}
+  .toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+  .toggle span{font-size:12.5px;color:var(--text)}
+  .sw{width:38px;height:21px;border-radius:11px;background:var(--surface-2);border:1px solid var(--border);
+    position:relative;cursor:pointer;transition:background .15s;flex:none}
+  .sw.on{background:var(--ember);border-color:var(--ember)}
+  .sw i{position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;
+    background:var(--text);transition:left .15s}
+  .sw.on i{left:19px;background:#2a1606}
+  .pref{margin-bottom:11px}
+  .pref label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+  .pref select,.pref input{width:100%;background:var(--base);border:1px solid var(--border);
+    color:var(--text);border-radius:7px;padding:6px 8px;font-size:12.5px}
+  .memlist{margin-top:6px;display:flex;flex-direction:column;gap:7px}
+  .memitem{display:flex;align-items:center;gap:8px;background:var(--base);border:1px solid var(--border);
+    border-radius:8px;padding:7px 9px;font-size:12px}
+  .memitem .k{font-family:var(--mono);font-size:10px;color:var(--ember);text-transform:uppercase}
+  .memitem .v{color:var(--text)}
+  .memitem .x{margin-left:auto;color:var(--faint);cursor:pointer;border:0;background:none;font-size:15px;line-height:1}
+  .memitem .x:hover{color:var(--fail)}
+  .memnone{font-size:12px;color:var(--faint);padding:6px 0}
+  .clearall{margin-top:12px;width:100%;background:none;border:1px solid var(--border);color:var(--muted);
+    border-radius:8px;padding:7px;font-size:12px;cursor:pointer}
+  .clearall:hover{border-color:var(--fail);color:var(--fail)}
+
   /* library gallery */
   .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;padding-bottom:10px}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;
@@ -946,6 +989,141 @@ function Architecture({ engines }) {
   );
 }
 
+// ---- assistant: conversational planner with per-user memory ----
+// No auth yet, so identity is a stable client id. Real auth replaces this line.
+function clientId() {
+  // in-memory only (artifacts can't use localStorage); stable for the session
+  if (!window.__afUser) window.__afUser = "user-" + Math.random().toString(36).slice(2, 8);
+  return window.__afUser;
+}
+
+function MemoryPanel({ userId, refreshKey, onChange }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    api(`/studio/memory/${userId}`).then(setData).catch(()=>setData(null));
+  }, [userId, refreshKey]);
+  if (!data) return <div className="memcard"><h3>Memory & preferences</h3>
+    <p className="sub">loading…</p></div>;
+  const p = data.preferences;
+  const savePref = (patch) =>
+    api(`/studio/preferences/${userId}`, {
+      method:"PUT", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(patch),
+    }).then(()=>onChange());
+  const del = (id) => api(`/studio/memory/${userId}/${id}`, {method:"DELETE"}).then(()=>onChange());
+  const clear = () => api(`/studio/memory/${userId}`, {method:"DELETE"}).then(()=>onChange());
+
+  return (
+    <div className="memcard">
+      <h3>Memory & preferences</h3>
+      <p className="sub">What the planner remembers about you, and the defaults it should use. You're in control — toggle it off, or forget anything.</p>
+
+      <div className="toggle">
+        <span>Memory {p.memory_enabled ? "on" : "off"}</span>
+        <div className={"sw"+(p.memory_enabled?" on":"")}
+          onClick={()=>savePref({memory_enabled: !p.memory_enabled})}><i/></div>
+      </div>
+
+      <div className="pref">
+        <label>Default tone</label>
+        <select value={p.default_tone||""} onChange={e=>savePref({default_tone:e.target.value})}>
+          <option value="">— let the planner decide —</option>
+          {["professional","casual","enthusiastic","formal","friendly"].map(t=>
+            <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      <div className="pref">
+        <label>Default language</label>
+        <select value={p.default_language||""} onChange={e=>savePref({default_language:e.target.value})}>
+          <option value="">— let the planner decide —</option>
+          {[["en","English"],["hi","Hindi"],["mr","Marathi"],["ta","Tamil"],["es","Spanish"],["fr","French"],["de","German"]]
+            .map(([v,l])=> <option key={v} value={v}>{l}</option>)}
+        </select>
+      </div>
+      <div className="pref">
+        <label>Default duration (seconds)</label>
+        <input type="number" min="15" max="300" value={p.default_duration||""}
+          placeholder="auto"
+          onChange={e=>savePref({default_duration: e.target.value? Number(e.target.value): null})}/>
+      </div>
+
+      <h3 style={{marginTop:18}}>Remembered</h3>
+      <p className="sub">Learned from your conversations. Each shows why.</p>
+      <div className="memlist">
+        {data.memories.length===0
+          ? <div className="memnone">{p.memory_enabled ? "Nothing yet — plan a video and I'll remember your style." : "Memory is off."}</div>
+          : data.memories.map(m=>(
+            <div className="memitem" key={m.id} title={m.source ? `from: ${m.source}` : ""}>
+              <span className="k">{m.kind}</span><span className="v">{m.value}</span>
+              <button className="x" onClick={()=>del(m.id)} title="Forget this">×</button>
+            </div>
+          ))}
+      </div>
+      {data.memories.length>0 &&
+        <button className="clearall" onClick={clear}>Forget everything</button>}
+    </div>
+  );
+}
+
+function Assistant() {
+  const userId = clientId();
+  const [history, setHistory] = useState([]);
+  const [thread, setThread] = useState(null);
+  const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [applied, setApplied] = useState("");
+  const [memKey, setMemKey] = useState(0);
+  const logRef = useRef(null);
+
+  useEffect(()=>{ logRef.current?.scrollTo(0, logRef.current.scrollHeight); }, [history]);
+
+  const send = async () => {
+    const message = input.trim();
+    if (!message || busy) return;
+    setBusy(true); setInput("");
+    setHistory(h => [...h, {role:"user", content:message}]);
+    try {
+      const res = await api("/studio/chat", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ user_id:userId, message, thread_id:thread }),
+      });
+      setThread(res.thread_id);
+      setHistory(res.history);
+      setApplied(res.memory_applied || "");
+      setMemKey(k=>k+1);   // refresh memory panel — it just learned
+    } catch(e) {
+      setHistory(h => [...h, {role:"assistant", content:"Something went wrong: "+e.message}]);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div>
+      <h1 className="eyebrow">Assistant</h1>
+      <p className="lede">Describe a video; refine it in conversation.
+        <span className="mut"> The planner remembers your style across sessions — and you decide what it keeps.</span></p>
+
+      <div className="asst">
+        <div className="chat">
+          <div className="chat-log" ref={logRef}>
+            {history.length===0
+              ? <div className="chat-empty">Try: <em>"a 30-second product intro, friendly tone, in Hindi"</em> — then refine: <em>"make it more energetic"</em>.</div>
+              : history.map((m,i)=> <div key={i} className={"msg "+m.role}>{m.content}</div>)}
+          </div>
+          {applied && <div className="chat-applied">applied from memory: {applied}</div>}
+          <div className="chat-bar">
+            <input value={input} placeholder="Describe or refine your video…"
+              onChange={e=>setInput(e.target.value)}
+              onKeyDown={e=>{ if(e.key==="Enter") send(); }} disabled={busy}/>
+            <button className="btn primary" onClick={send} disabled={busy}>
+              {busy ? "…" : "Send"}</button>
+          </div>
+        </div>
+        <MemoryPanel userId={userId} refreshKey={memKey} onChange={()=>setMemKey(k=>k+1)} />
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [view, setView] = useState("studio");
   const [engines, setEngines] = useState({ engines:["sadtalker"], default:"sadtalker" });
@@ -964,6 +1142,7 @@ function App() {
         <div className="brand"><Anvil/> avatarforge</div>
         <div className="nav">
           <button className={view==="studio"?"on":""} onClick={()=>setView("studio")}>Studio</button>
+          <button className={view==="assistant"?"on":""} onClick={()=>setView("assistant")}>Assistant</button>
           <button className={view==="library"?"on":""} onClick={()=>setView("library")}>Library</button>
           <button className={view==="dashboard"?"on":""} onClick={()=>setView("dashboard")}>Dashboard</button>
           <button className={view==="monitoring"?"on":""} onClick={()=>setView("monitoring")}>Monitoring</button>
@@ -976,6 +1155,7 @@ function App() {
       </div></div>
       <div className="wrap">
         {view==="studio" ? <Studio engines={engines} />
+          : view==="assistant" ? <Assistant />
           : view==="library" ? <Library />
           : view==="dashboard" ? <Dashboard />
           : view==="architecture" ? <Architecture engines={engines} />

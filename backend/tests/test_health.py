@@ -74,3 +74,10 @@ def test_console_includes_architecture_view(client: TestClient) -> None:
     assert "function Architecture" in html
     assert ">Architecture<" in html  # nav button
     assert "Engine registry" in html and "LangGraph pipeline" in html
+
+
+def test_console_includes_assistant_view(client: TestClient) -> None:
+    """The console ships the conversational Assistant with the memory panel."""
+    html = client.get("/").text
+    assert "function Assistant" in html and ">Assistant<" in html
+    assert "Memory & preferences" in html and "/studio/chat" in html

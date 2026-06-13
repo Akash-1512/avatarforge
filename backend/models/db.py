@@ -54,7 +54,14 @@ async def reset_engine() -> None:
 
 async def init_db() -> None:
     """Create tables in dev. Safe to call repeatedly."""
-    from backend.models import avatar_usage, job, tts_usage, usage  # noqa: F401 — register models
+    from backend.models import (  # noqa: F401 — register models
+        avatar_usage,
+        chat,
+        job,
+        memory,
+        tts_usage,
+        usage,
+    )
 
     engine = get_engine()
     async with engine.begin() as conn:
