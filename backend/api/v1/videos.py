@@ -53,6 +53,7 @@ async def submit_video_job(
         "professional"
     ),
     duration_seconds: int = Form(60, ge=15, le=300),
+    language: str = Form("en", min_length=2, max_length=5),
     voice: Literal[
         "professional_female", "professional_male", "casual_female", "casual_male", "narrator"
     ] = Form("professional_female"),
@@ -81,6 +82,7 @@ async def submit_video_job(
         tone=tone,
         duration_seconds=duration_seconds,
         voice=voice,
+        language=language,
         image_file_id=stored_image.file_id,
         preprocess=preprocess,
         engine=engine_name,

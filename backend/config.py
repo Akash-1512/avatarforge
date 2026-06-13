@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     # ── App ──────────────────────────────────────────────
-    app_version: str = "1.1.1"
+    app_version: str = "1.2.0"
     environment: Literal["dev", "staging", "prod"] = "dev"
     log_level: str = "INFO"
     cors_origins: List[str] = ["http://localhost:3000"]
@@ -55,8 +55,10 @@ class Settings(BaseSettings):
     sadtalker_device: Literal["cpu", "cuda"] = "cpu"
     sadtalker_url: str = "http://sadtalker:8001"
     hunyuan_url: str = ""  # self-hosted GPU engine; e.g. RunPod TCP URL
-    fal_api_key: str = ""  # managed engine (fal-ai/hunyuan-avatar)
+    fal_api_key: str = ""  # managed engines (avatar + voice clone via fal)
     fal_avatar_model: str = "fal-ai/hunyuan-avatar"
+    fal_voice_clone_model: str = "resemble-ai/chatterboxhd/text-to-speech"
+    voice_clone_reference_url: str = ""  # public URL of the reference voice sample
     avatar_default_engine: str = "sadtalker"
     avatar_inference_timeout_sec: float = 2700.0
 

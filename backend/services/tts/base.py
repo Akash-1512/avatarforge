@@ -31,6 +31,6 @@ class BaseTTSProvider(ABC):
 
     @abstractmethod
     async def synthesize(
-        self, text: str, voice_preset: str, speaking_rate: float = 1.0
+        self, text: str, voice_preset: str, speaking_rate: float = 1.0, language: str = "en"
     ) -> SynthesisResult:
         """Return raw audio bytes (WAV) for the given text."""

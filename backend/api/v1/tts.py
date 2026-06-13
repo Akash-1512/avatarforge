@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from backend.models.schemas import TTSRequest, TTSResponse
 from backend.services.tts.base import AllTTSProvidersFailedError
 from backend.services.tts.service import TTSService, get_tts_service
-from backend.services.tts.voices import VOICE_PRESETS
+from backend.services.tts.voices import VOICE_MATRIX
 
 router = APIRouter()
 
@@ -14,12 +14,14 @@ router = APIRouter()
 async def list_voices() -> dict:
     """Available voice presets and their per-provider mapping."""
     return {
-        name: {
-            "azure_voice": p.azure_voice,
-            "openai_voice": p.openai_voice,
-            "description": p.description,
+        role: {
+            "languages": sorted(by_lang.keys()),
+            "voices": {
+                lang: {"azure_voice": p.azure_voice, "locale": p.locale, "desc": p.description}
+                for lang, p in by_lang.items()
+            },
         }
-        for name, p in VOICE_PRESETS.items()
+        for role, by_lang in VOICE_MATRIX.items()
     }
 
 

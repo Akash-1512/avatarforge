@@ -27,6 +27,8 @@ GET  {video_url}       ──►  the MP4                 (after completion)
 | `tone` | enum | no | `professional` (default), `casual`, `enthusiastic`, `formal`, `friendly` |
 | `duration_seconds` | int | no | 15–300, default 60 |
 | `voice` | enum | no | `professional_female` (default), `professional_male`, `casual_female`, `casual_male`, `narrator` |
+| `language` | string | no | ISO-639-1 (`en` default; `hi`, `mr`, `ta`, `es`, `fr`, `de`) |
+| `voice=cloned` | enum | no | routes to Chatterbox voice clone (needs reference sample configured) |
 | `preprocess` | enum | no | `crop` (default), `resize`, `full` |
 | `engine` | enum | no | `sadtalker` (default), `hunyuan` (self-host GPU), or `fal` (managed API); 503 at submit if not configured |
 
