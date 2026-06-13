@@ -28,7 +28,7 @@ GET  {video_url}       ──►  the MP4                 (after completion)
 | `duration_seconds` | int | no | 15–300, default 60 |
 | `voice` | enum | no | `professional_female` (default), `professional_male`, `casual_female`, `casual_male`, `narrator` |
 | `preprocess` | enum | no | `crop` (default), `resize`, `full` |
-| `engine` | enum | no | `sadtalker` (default) or `hunyuan` (GPU tier; 503 at submit if not configured) |
+| `engine` | enum | no | `sadtalker` (default), `hunyuan` (self-host GPU), or `fal` (managed API); 503 at submit if not configured |
 
 Response `202`:
 

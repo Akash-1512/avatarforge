@@ -32,7 +32,7 @@ async def generate_avatar(
     audio_file_id: str = Form(..., description="WAV file id from /tts/synthesize"),
     preprocess: Literal["crop", "resize", "full"] = Form("crop"),
     enhancer: bool = Form(False),
-    engine: Literal["sadtalker", "hunyuan"] = Form(None),
+    engine: Literal["sadtalker", "hunyuan", "fal"] = Form(None),
     service: AvatarService = Depends(get_avatar_service),
 ) -> AvatarResponse:
     """Generate a talking-head video from a photo and synthesized audio.

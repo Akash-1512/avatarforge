@@ -145,3 +145,19 @@ def test_unconfigured_engine_raises_503(storage):
         svc.resolve_engine("hunyuan")
     assert exc_info.value.status_code == 503
     assert "not configured" in str(exc_info.value)
+
+
+def test_fal_engine_registered_when_key_present(monkeypatch):
+    """get_avatar_service wires the fal engine iff FAL_API_KEY is set."""
+    from backend.config import get_settings
+    from backend.services.avatar.service import get_avatar_service
+
+    monkeypatch.setenv("FAL_API_KEY", "k-123")
+    get_settings.cache_clear()
+    get_avatar_service.cache_clear()
+    svc = get_avatar_service()
+    assert "fal" in svc.engines
+    assert "sadtalker" in svc.engines
+
+    get_settings.cache_clear()
+    get_avatar_service.cache_clear()

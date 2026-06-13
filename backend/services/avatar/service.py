@@ -159,9 +159,13 @@ async def _db_usage_recorder(payload: dict) -> None:
 @lru_cache
 def get_avatar_service() -> AvatarService:
     settings = get_settings()
-    engines = {"sadtalker": SadTalkerClient(settings)}
+    engines: dict = {"sadtalker": SadTalkerClient(settings)}
     if settings.hunyuan_url:
         engines["hunyuan"] = SadTalkerClient(settings, base_url=settings.hunyuan_url)
+    if settings.fal_api_key:
+        from backend.services.avatar.fal_client import FalAvatarClient
+
+        engines["fal"] = FalAvatarClient(settings)
     return AvatarService(
         engines=engines,
         storage=get_storage(),

@@ -9,7 +9,7 @@ down:           ## Stop all containers
 	docker compose down
 
 test:           ## Run unit tests with coverage (inside the api container)
-	docker compose run --rm --no-deps api python -m pytest backend/tests/ -v --cov=backend --cov-report=term-missing
+	docker compose run --rm --no-deps --user root --entrypoint "" api sh -c "pip install -q -r backend/requirements-dev.txt && python -m pytest backend/tests/ -v --cov=backend --cov-report=term-missing"
 
 models:         ## Download SadTalker checkpoints (~4GB, one-time)
 	docker compose run --rm sadtalker python download_models.py

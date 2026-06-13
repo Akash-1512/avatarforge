@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     # ── App ──────────────────────────────────────────────
-    app_version: str = "1.1.0"
+    app_version: str = "1.1.1"
     environment: Literal["dev", "staging", "prod"] = "dev"
     log_level: str = "INFO"
     cors_origins: List[str] = ["http://localhost:3000"]
@@ -54,7 +54,9 @@ class Settings(BaseSettings):
     sadtalker_checkpoint_dir: str = "/models/sadtalker"
     sadtalker_device: Literal["cpu", "cuda"] = "cpu"
     sadtalker_url: str = "http://sadtalker:8001"
-    hunyuan_url: str = ""  # GPU engine; e.g. https://<pod-id>-8002.proxy.runpod.net
+    hunyuan_url: str = ""  # self-hosted GPU engine; e.g. RunPod TCP URL
+    fal_api_key: str = ""  # managed engine (fal-ai/hunyuan-avatar)
+    fal_avatar_model: str = "fal-ai/hunyuan-avatar"
     avatar_default_engine: str = "sadtalker"
     avatar_inference_timeout_sec: float = 2700.0
 

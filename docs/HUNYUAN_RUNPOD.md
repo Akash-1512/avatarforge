@@ -24,51 +24,57 @@ than one Hunyuan clip; keep audio ≤5s for a single-clip render).
 
 ## One-time setup
 
-1. RunPod → Pods → Deploy. Pick **A100 80GB** (or 4090 to trial). Template:
-   any CUDA 12.x PyTorch image, or use Docker directly with our image.
-2. Attach a **Network Volume** (60GB+) mounted at `/weights`.
-3. Expose **HTTP port 8002**.
+**Two RunPod gotchas this runbook designs around:**
+1. The HTTP proxy (`*.proxy.runpod.net`) runs through Cloudflare with a hard
+   **100-second timeout** — our /infer blocks for minutes, so it would 524
+   every time. **Expose the port as TCP**, not HTTP, and use the direct
+   IP:port mapping instead.
+2. Pods are themselves containers — no docker-in-docker. Deploy the pod
+   **with Tencent's image** rather than building ours inside it.
 
-In the pod terminal:
+Steps (web console):
 
-```bash
-git clone https://github.com/Akash-1512/avatarforge.git
-cd avatarforge/hunyuan
-
-# Build and start the model server (or run the steps from the Dockerfile manually
-# inside RunPod's pytorch image if docker-in-docker isn't available):
-docker build -t avatarforge-hunyuan .
-docker run -d --gpus all -p 8002:8002 \
-  -v /weights:/weights \
-  -e CPU_OFFLOAD=0 \            # 1 on a 4090
-  avatarforge-hunyuan
-
-# First time only — download weights into the network volume (~30GB+):
-docker exec -it $(docker ps -q -f ancestor=avatarforge-hunyuan) ./download_models.sh
-```
-
-No docker available in the pod? Run bare:
+1. RunPod → Pods → **Deploy**. GPU: **A100 80GB** (or RTX 4090 to trial with
+   CPU offload).
+2. Template → **Edit/Custom**: container image `hunyuanvideo/hunyuanvideo:cuda_12`,
+   container start command `sleep infinity`.
+3. **Expose TCP port 8002** (TCP, not HTTP — see gotcha #1). Container disk
+   ≥20GB.
+4. Optional but recommended: attach a **Network Volume** (60GB+) at `/weights`
+   so the ~30GB weights download happens exactly once across sessions.
+5. Deploy, then open the **Web Terminal** and run:
 
 ```bash
 git clone https://github.com/Tencent-Hunyuan/HunyuanVideo-Avatar.git /app/HunyuanVideo-Avatar
-pip install fastapi uvicorn python-multipart "huggingface_hub[cli]"
-MODEL_BASE=/weights ./download_models.sh
+git clone https://github.com/Akash-1512/avatarforge.git /app/avatarforge
+cd /app/avatarforge/hunyuan
+pip install -q fastapi==0.115.6 uvicorn==0.34.0 python-multipart==0.0.20 "huggingface_hub[cli]"
+
+# First time only (~30GB into the volume):
+MODEL_BASE=/weights bash download_models.sh
+
+# Start the model server (CPU_OFFLOAD=1 on a 4090, 0 on A100):
 HUNYUAN_DIR=/app/HunyuanVideo-Avatar MODEL_BASE=/weights CPU_OFFLOAD=0 \
-  uvicorn server:app --host 0.0.0.0 --port 8002
+  nohup uvicorn server:app --host 0.0.0.0 --port 8002 > /tmp/hunyuan.log 2>&1 &
+sleep 5 && curl -s localhost:8002/health
 ```
+
+Expect `"checkpoints_present": true, "gpu_available": true`.
 
 ## Connect avatarforge to it
 
-RunPod gives the pod a proxy URL per exposed port. In your local `.env`:
+Pod page → **Connect → TCP Port Mapping**: note the public IP and the external
+port mapped to 8002 (random, e.g. `69.30.85.10:22112`). In your local `.env`:
 
 ```
-HUNYUAN_URL=https://<pod-id>-8002.proxy.runpod.net
+HUNYUAN_URL=http://<pod-ip>:<mapped-port>
 ```
 
-Restart the api + worker (`docker compose restart api worker`), then verify:
+Recreate api + worker so they pick up the env change, then verify end to end:
 
 ```powershell
-Invoke-RestMethod "$env:HUNYUAN_URL/health"      # checkpoints_present: true, gpu_available: true
+docker compose up -d --force-recreate api worker
+Invoke-RestMethod "http://<pod-ip>:<mapped-port>/health"   # from your machine
 ```
 
 ## Generate on the quality tier

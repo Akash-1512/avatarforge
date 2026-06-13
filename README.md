@@ -104,20 +104,23 @@ applies `k8s/`, creates secrets from `.env`, and runs migrations.
 The model-server contract (`/infer`: image + audio in, MP4 out) is the seam
 the whole system hangs on. v1.1 proves it by running two engines behind it:
 
-| engine | hardware | cost | output |
+| engine | deployment | cost | output |
 |---|---|---|---|
-| `sadtalker` (default) | CPU, runs in compose | $0 | 2023-era talking head, head-and-shoulders |
-| `hunyuan` | NVIDIA GPU, 24GB+ (rented works) | ~$0.34–1.39/hr rented | HunyuanVideo-Avatar (Tencent, MM-DiT) — full-scene motion, natural expressions, ~5s clips |
+| `sadtalker` (default) | CPU, self-hosted in compose | $0 | 2023-era talking head, head-and-shoulders |
+| `hunyuan` | self-hosted GPU, 24GB+ (rented works) | ~$0.34–1.39/hr | HunyuanVideo-Avatar (Tencent, MM-DiT) — full-scene motion, natural expressions |
+| `fal` | managed API (fal-ai/hunyuan-avatar) | ~$1.40 / 5s clip, $0 idle | same Hunyuan model, zero infrastructure, ~8 min/clip |
 
-Pick per request (`engine=hunyuan` on `/videos/generate`) or set
-`AVATAR_DEFAULT_ENGINE`. Jobs, audit rows, MLflow runs, and
-`/metrics/summary` all carry the engine, so the tiers are separable in every
-metric. The pipeline, retries, DLQ, SSE — none of it changed to add the
-second engine; that was the point.
+Three engines, three deployment models — local CPU, self-hosted GPU, managed
+API — behind **one** `/infer`-shaped contract. Pick per request
+(`engine=fal` on `/videos/generate`) or set `AVATAR_DEFAULT_ENGINE`. Jobs,
+audit rows, MLflow runs, and `/metrics/summary` all carry the engine, so the
+tiers stay separable in every metric. Nothing in the pipeline, retries, DLQ,
+or SSE changed to add engines two and three — that was the point of the
+contract.
 
-Deploying the GPU engine on a rented pod (RunPod, by-the-second billing):
-[`docs/HUNYUAN_RUNPOD.md`](docs/HUNYUAN_RUNPOD.md). A commercial API (D-ID
-and similar, ~$0.10–0.30/video) would slot in the same way as a third engine.
+- Self-host the GPU engine on a rented pod: [`docs/HUNYUAN_RUNPOD.md`](docs/HUNYUAN_RUNPOD.md)
+- The `fal` engine needs only `FAL_API_KEY` in `.env`; one real render via
+  `python scripts/fal_smoke.py face.jpg audio.wav`
 
 ## Production readiness
 
