@@ -60,6 +60,28 @@ jobs:
       - name: Build API image
         run: docker build -t avatarforge-api:ci ./backend
 
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Audit Python dependencies for known CVEs
+        run: |
+          pip install pip-audit
+          pip-audit -r backend/requirements.txt --ignore-vuln GHSA-none || true
+      - name: Build image for scanning
+        run: docker build -t avatarforge-api:scan ./backend
+      - name: Trivy image scan (HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: avatarforge-api:scan
+          severity: HIGH,CRITICAL
+          exit-code: "0"   # report, don't block — surface findings without gating merges
+          format: table
+
   k8s-validate:
     runs-on: ubuntu-latest
     needs: lint
@@ -126,5 +148,5 @@ jobs:
             echo "No Azure secrets available — skipping eval gate"
             exit 0
           fi
-          cd backend && python -m backend.evals.runner --limit 5
+          python -m backend.evals.runner --limit 5
         working-directory: .

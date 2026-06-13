@@ -17,8 +17,19 @@ TERMINAL_STATUSES = {"completed", "failed"}
 
 
 class JobRepository:
-    def __init__(self, session_factory: async_sessionmaker):
-        self._sf = session_factory
+    def __init__(self, session_factory: async_sessionmaker | None = None):
+        # When None, resolve the current global factory on each use, so a
+        # Celery task that reset the engine for its loop is honoured. Tests
+        # still inject a SQLite factory explicitly.
+        self._injected = session_factory
+
+    @property
+    def _sf(self) -> async_sessionmaker:
+        if self._injected is not None:
+            return self._injected
+        from backend.models.db import get_session_factory
+
+        return get_session_factory()
 
     async def create(self, **fields) -> VideoJob:
         job = VideoJob(id=uuid.uuid4().hex, **fields)
@@ -77,6 +88,6 @@ class JobRepository:
 
 @lru_cache
 def get_job_repository() -> JobRepository:
-    from backend.models.db import get_session_factory
-
-    return JobRepository(get_session_factory())
+    # No captured factory — the repo resolves the current global session
+    # factory on each use, so engine resets (per Celery task loop) are honoured.
+    return JobRepository()
