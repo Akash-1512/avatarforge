@@ -26,6 +26,16 @@ async def avatar_health(service: AvatarService = Depends(get_avatar_service)) ->
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+@router.get("/avatar/engines")
+async def list_engines(service: AvatarService = Depends(get_avatar_service)) -> dict:
+    """Which avatar engines are configured right now, and which is the default.
+
+    Lets a client offer only engines that will actually run, instead of
+    surfacing a 503 after the user picks an unconfigured one.
+    """
+    return {"engines": sorted(service.engines.keys()), "default": service.default_engine}
+
+
 @router.post("/avatar/generate", response_model=AvatarResponse)
 async def generate_avatar(
     image: UploadFile = File(..., description="Front-facing photo, PNG/JPEG, min 256px"),
