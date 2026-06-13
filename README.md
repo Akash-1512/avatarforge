@@ -115,6 +115,12 @@ the orchestration *visible*.
 - **Dashboard** — spend, LLM fallback rate, avatar/speech success, and a
   live-refreshing jobs table, all computed from the audit tables via
   `/metrics/summary`; the dead-letter queue surfaces only when something is stuck.
+- **Monitoring** — the deep observability surface: dependency readiness
+  (`/health/deep`), per-provider breakdowns for LLM and speech (calls, success,
+  latency, cost), the jobs-by-status distribution, and the script-eval
+  regression gate — per-metric scores against their thresholds plus the
+  LLM-as-Judge score, served from the latest `make eval` run via
+  `/metrics/eval`.
 
 It's one self-contained file (`backend/frontend/index.html`, React via CDN, no
 build step) served by an explicit FastAPI route, same-origin with the API.
