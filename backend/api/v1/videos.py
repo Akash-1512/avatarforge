@@ -57,7 +57,7 @@ async def submit_video_job(
         "professional_female", "professional_male", "casual_female", "casual_male", "narrator"
     ] = Form("professional_female"),
     preprocess: Literal["crop", "resize", "full"] = Form("crop"),
-    engine: Literal["sadtalker", "hunyuan"] = Form(None),
+    engine: Literal["sadtalker", "hunyuan", "fal"] = Form(None),
     repo: JobRepository = Depends(get_job_repository),
 ) -> dict:
     """Queue a full video generation job. Returns a job_id immediately."""

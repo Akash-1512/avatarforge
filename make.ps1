@@ -28,7 +28,7 @@ switch ($Task) {
         docker compose run --rm --no-deps api python -m backend.evals.runner
     }
     "migrate" {
-        docker compose run --rm --no-deps --user root --entrypoint "" api sh -c 'cd /app/backend && alembic upgrade head'
+        docker compose run --rm --no-deps --entrypoint "" api sh -c 'cd /app/backend && alembic upgrade head'
     }
     "lint" {
         Push-Location backend
