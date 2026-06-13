@@ -94,6 +94,24 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix="/api/v1")
+
+    # Operator console — a single static file served at the root. An explicit
+    # route (not a StaticFiles mount at "/") so it never shadows /api, /docs,
+    # or /redoc. The console is same-origin with the API, so CORS doesn't apply.
+    from pathlib import Path
+
+    from fastapi.responses import FileResponse, JSONResponse
+
+    _ui_file = Path(__file__).parent / "frontend" / "index.html"
+
+    @app.get("/", include_in_schema=False)
+    async def operator_console() -> FileResponse:
+        if not _ui_file.exists():
+            return JSONResponse(  # type: ignore[return-value]
+                {"detail": "Console not built", "api_docs": "/docs"}, status_code=404
+            )
+        return FileResponse(_ui_file)
+
     return app
 
 

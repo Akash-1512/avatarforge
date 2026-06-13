@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>avatarforge — operator console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<style>
+  :root{
+    --base:#16130F; --surface:#211C16; --surface-2:#2B241C; --border:#3A322A;
+    --ember:#FF8A3D; --ember-dim:#7a4a26; --hot:#FFD9A0;
+    --done:#5FD08A; --fail:#E06A5C; --idle:#5b5347;
+    --text:#F2EBE0; --muted:#9B9183; --faint:#6b6358;
+    --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+    --sans:'IBM Plex Sans',system-ui,sans-serif;
+    --display:'Space Grotesk',var(--sans);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--base);color:var(--text);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5}
+  body{background-image:radial-gradient(1200px 500px at 70% -10%,rgba(255,138,61,.06),transparent 60%)}
+  a{color:var(--ember);text-decoration:none}
+  button{font-family:var(--sans);cursor:pointer}
+  input,select,textarea{font-family:var(--sans);font-size:14px}
+  ::selection{background:rgba(255,138,61,.3)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+  /* top bar */
+  .topbar{border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20;
+    background:rgba(22,19,15,.82);backdrop-filter:blur(10px)}
+  .topbar .wrap{display:flex;align-items:center;gap:28px;height:60px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--display);font-weight:700;
+    font-size:18px;letter-spacing:-.01em}
+  .anvil{width:22px;height:22px;flex:none}
+  .nav{display:flex;gap:4px;margin-left:6px}
+  .nav button{background:none;border:0;color:var(--muted);font-size:14px;font-weight:500;
+    padding:7px 13px;border-radius:7px}
+  .nav button:hover{color:var(--text)}
+  .nav button.on{color:var(--base);background:var(--ember)}
+  .ver{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+
+  h1.eyebrow{font-family:var(--mono);font-weight:500;font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--ember);margin:34px 0 6px}
+  .lede{font-family:var(--display);font-weight:500;font-size:26px;letter-spacing:-.02em;
+    margin:0 0 26px;max-width:680px;line-height:1.25}
+  .lede .mut{color:var(--muted)}
+
+  /* studio grid */
+  .studio{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:22px;
+    align-items:start;padding-bottom:60px}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
+  .panel h3{font-family:var(--display);font-weight:500;font-size:14px;margin:0 0 16px;
+    letter-spacing:.01em;color:var(--text)}
+
+  .seg{display:flex;background:var(--base);border:1px solid var(--border);border-radius:9px;
+    padding:3px;margin-bottom:18px}
+  .seg button{flex:1;background:none;border:0;color:var(--muted);font-size:13px;font-weight:500;
+    padding:8px;border-radius:6px}
+  .seg button.on{background:var(--surface-2);color:var(--text)}
+
+  label.fl{display:block;font-size:12px;color:var(--muted);margin:14px 0 5px;font-weight:500}
+  label.fl:first-of-type{margin-top:0}
+  .inp,.sel,.ta{width:100%;background:var(--base);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:9px 11px;outline:none}
+  .inp:focus,.sel:focus,.ta:focus{border-color:var(--ember);box-shadow:0 0 0 3px rgba(255,138,61,.13)}
+  .ta{resize:vertical;min-height:74px;line-height:1.5}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+  .drop{border:1.5px dashed var(--border);border-radius:10px;padding:18px;text-align:center;
+    color:var(--muted);font-size:13px;cursor:pointer;transition:border-color .15s,background .15s}
+  .drop:hover{border-color:var(--ember-dim);background:var(--base)}
+  .drop.has{border-style:solid;border-color:var(--ember-dim);padding:10px}
+  .thumb{width:100%;max-height:140px;object-fit:contain;border-radius:6px}
+
+  .btns{display:flex;gap:10px;margin-top:18px}
+  .btn{border:1px solid var(--border);background:var(--surface-2);color:var(--text);
+    padding:10px 15px;border-radius:9px;font-weight:600;font-size:14px;flex:1}
+  .btn:hover{border-color:var(--muted)}
+  .btn.primary{background:var(--ember);border-color:var(--ember);color:#2a1606}
+  .btn.primary:hover{background:var(--hot);border-color:var(--hot)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  .plan{margin-top:16px;background:var(--base);border:1px solid var(--border);border-radius:10px;
+    padding:14px;font-size:13px}
+  .plan .pr{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border)}
+  .plan .pr:last-child{border:0}
+  .plan .k{color:var(--muted)} .plan .v{font-family:var(--mono);color:var(--text)}
+  .plan .why{margin-top:10px;color:var(--muted);font-style:italic;line-height:1.45}
+
+  /* the forge: pipeline signature */
+  .forge{min-height:340px;display:flex;flex-direction:column}
+  .stage-photo{display:flex;gap:16px;align-items:center;margin-bottom:22px}
+  .stage-photo img{width:64px;height:64px;border-radius:10px;object-fit:cover;border:1px solid var(--border)}
+  .stage-photo .ph{width:64px;height:64px;border-radius:10px;border:1px dashed var(--border);
+    display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:11px;text-align:center}
+  .jobmeta{font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.7}
+  .jobmeta .id{color:var(--text)}
+
+  .track{display:flex;align-items:flex-start;margin:8px 0 26px;padding:0 4px}
+  .station{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative}
+  .node{width:46px;height:46px;border-radius:12px;border:1.5px solid var(--border);
+    background:var(--surface);display:flex;align-items:center;justify-content:center;
+    transition:all .4s ease;position:relative;z-index:2}
+  .node svg{width:22px;height:22px;stroke:var(--idle);transition:stroke .4s}
+  .station .nm{font-size:11.5px;color:var(--faint);margin-top:9px;font-weight:500;transition:color .4s}
+  .conduit{position:absolute;top:23px;left:50%;width:100%;height:2.5px;background:var(--border);z-index:1}
+  .conduit .fill{height:100%;width:0;background:linear-gradient(90deg,var(--ember),var(--hot));
+    transition:width .6s ease;box-shadow:0 0 8px rgba(255,138,61,.6)}
+  .station:last-child .conduit{display:none}
+
+  .station.done .node{border-color:var(--done);background:rgba(95,208,138,.1)}
+  .station.done .node svg{stroke:var(--done)}
+  .station.done .nm{color:var(--done)}
+  .station.done .conduit .fill{width:100%;background:var(--done);box-shadow:none}
+  .station.active .node{border-color:var(--ember);background:rgba(255,138,61,.14);
+    animation:heat 1.3s ease-in-out infinite}
+  .station.active .node svg{stroke:var(--ember)}
+  .station.active .nm{color:var(--ember)}
+  .station.fail .node{border-color:var(--fail);background:rgba(224,106,92,.12)}
+  .station.fail .node svg{stroke:var(--fail)}
+  .station.fail .nm{color:var(--fail)}
+  @keyframes heat{0%,100%{box-shadow:0 0 0 0 rgba(255,138,61,.0)}
+    50%{box-shadow:0 0 0 6px rgba(255,138,61,.13),0 0 16px rgba(255,138,61,.4)}}
+  @media (prefers-reduced-motion:reduce){.station.active .node{animation:none}}
+
+  .statusline{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-bottom:18px;
+    display:flex;align-items:center;gap:9px}
+  .video{width:100%;border-radius:11px;border:1px solid var(--border);background:#000;margin-top:auto}
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--faint);text-align:center;gap:8px;padding:30px 0}
+  .empty svg{width:38px;height:38px;stroke:var(--idle)}
+  .err{background:rgba(224,106,92,.1);border:1px solid rgba(224,106,92,.35);color:#f0a89f;
+    border-radius:9px;padding:11px 13px;font-size:13px;margin-top:14px;font-family:var(--mono)}
+
+  /* dashboard */
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:17px}
+  .tile .lab{font-size:12px;color:var(--muted);font-weight:500}
+  .tile .big{font-family:var(--display);font-weight:700;font-size:30px;letter-spacing:-.02em;
+    margin-top:7px;line-height:1}
+  .tile .sub{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-top:6px}
+  .tile .big.ember{color:var(--ember)} .tile .big.done{color:var(--done)}
+
+  .tbl{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);
+    border-radius:13px;overflow:hidden;font-size:13px}
+  .tbl thead th{text-align:left;font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);font-weight:500;padding:11px 14px;
+    border-bottom:1px solid var(--border);background:var(--base)}
+  .tbl td{padding:11px 14px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12.5px}
+  .tbl tr:last-child td{border-bottom:0}
+  .tbl tr:hover td{background:var(--surface-2)}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;
+    padding:3px 9px;border-radius:20px;font-weight:500}
+  .pill.queued{background:rgba(155,145,131,.15);color:var(--muted)}
+  .pill.running{background:rgba(255,138,61,.15);color:var(--ember)}
+  .pill.completed{background:rgba(95,208,138,.15);color:var(--done)}
+  .pill.failed{background:rgba(224,106,92,.15);color:var(--fail)}
+  .sec-h{display:flex;align-items:center;justify-content:between;gap:12px;margin:30px 0 13px}
+  .sec-h h3{font-family:var(--display);font-weight:500;font-size:15px;margin:0}
+  .sec-h .rf{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .muted-empty{color:var(--faint);font-size:13px;padding:18px 0;text-align:center;font-family:var(--mono)}
+  .dlq td{color:#f0a89f}
+  @media(max-width:880px){.studio{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
+const API = "/api/v1";
+
+const STAGES = [
+  { key: "script",  label: "Script",  icon: "M4 6h16M4 12h16M4 18h10" },
+  { key: "tts",     label: "Voice",   icon: "M12 3v18M8 7v10M16 7v10M4 10v4M20 10v4" },
+  { key: "avatar",  label: "Avatar",  icon: "M12 13a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0" },
+  { key: "store",   label: "Package", icon: "M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8" },
+];
+// stage value reported by the pipeline -> index in STAGES
+const STAGE_IX = { script:0, tts:1, avatar:2, store:3, notify:3, package:3 };
+
+function api(path, opts) {
+  return fetch(API + path, opts).then(async r => {
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.detail || `${r.status} ${r.statusText}`);
+    return body;
+  });
+}
+
+function Anvil() {
+  return (
+    <svg className="anvil" viewBox="0 0 24 24" fill="none">
+      <path d="M3 9h11c0 2-1.5 3-3 3.5L13 15h3l-1 4H8l1-4-3.5-1A4 4 0 013 9z"
+        fill="#FF8A3D"/><path d="M16 9h5v2l-3 1" stroke="#FF8A3D" strokeWidth="1.6" fill="none"/>
+    </svg>
+  );
+}
+
+// ---- the forge: live pipeline track ----
+function Forge({ image, job }) {
+  const status = job?.status;
+  const stage = job?.current_stage;
+  const activeIx = stage != null ? (STAGE_IX[stage] ?? -1) : -1;
+  const done = status === "completed";
+  const failed = status === "failed";
+
+  const stationClass = (i) => {
+    if (failed && i === activeIx) return "station fail";
+    if (done) return "station done";
+    if (i < activeIx) return "station done";
+    if (i === activeIx && status === "running") return "station active";
+    return "station";
+  };
+
+  return (
+    <div className="forge">
+      <div className="stage-photo">
+        {image ? <img src={image} alt="source" /> : <div className="ph">no photo</div>}
+        <div className="jobmeta">
+          {job ? <>
+            <div>job <span className="id">{job.job_id?.slice(0,12)}…</span></div>
+            <div>engine {job.engine || "—"} · {job.language || "en"}</div>
+          </> : <div>compose a job to begin</div>}
+        </div>
+      </div>
+
+      <div className="track">
+        {STAGES.map((s, i) => (
+          <div key={s.key} className={stationClass(i)}>
+            <div className="conduit"><div className="fill" /></div>
+            <div className="node">
+              <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={s.icon}/></svg>
+            </div>
+            <div className="nm">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {job && (
+        <div className="statusline">
+          <span className="dot" style={{background: failed?"var(--fail)":done?"var(--done)":"var(--ember)"}}/>
+          {done ? "forged — video ready"
+            : failed ? `failed at ${stage || "?"}`
+            : `${status || "queued"}${stage ? " · " + stage : ""}`}
+        </div>
+      )}
+
+      {job?.video_url
+        ? <video className="video" src={job.video_url} controls autoPlay muted loop />
+        : !job && (
+          <div className="empty">
+            <svg viewBox="0 0 24 24" fill="none" strokeWidth="1.4"><path d="M12 3v18M3 12h18"/></svg>
+            <div>the pipeline lights up here as your job is forged</div>
+          </div>
+        )}
+      {failed && job?.error_message && <div className="err">{job.error_message}</div>}
+    </div>
+  );
+}
+
+// ---- photo dropzone ----
+function Drop({ file, onFile }) {
+  const ref = useRef();
+  const url = file ? URL.createObjectURL(file) : null;
+  return (
+    <div className={"drop" + (file ? " has":"")} onClick={() => ref.current.click()}
+      onDragOver={e=>e.preventDefault()}
+      onDrop={e=>{e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) onFile(f);}}>
+      {file ? <img className="thumb" src={url} alt="preview"/>
+        : <>Drop a front-facing photo, or click to choose<br/><span style={{color:"var(--faint)"}}>PNG or JPEG · min 256px</span></>}
+      <input ref={ref} type="file" accept="image/png,image/jpeg" hidden
+        onChange={e=>{const f=e.target.files[0]; if(f) onFile(f);}}/>
+    </div>
+  );
+}
+
+// ---- studio ----
+function Studio({ engines }) {
+  const [mode, setMode] = useState("quick");      // quick | advanced
+  const [file, setFile] = useState(null);
+  const [imgUrl, setImgUrl] = useState(null);
+  const [brief, setBrief] = useState("");
+  const [plan, setPlan] = useState(null);
+  const [form, setForm] = useState({ topic:"", tone:"professional", duration_seconds:60,
+    language:"en", voice:"professional_female", engine: engines.default || "sadtalker" });
+  const [job, setJob] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const es = useRef(null);
+
+  useEffect(() => () => es.current?.close(), []);
+  const pickFile = (f) => { setFile(f); setImgUrl(URL.createObjectURL(f)); };
+
+  const track = useCallback((jobId) => {
+    es.current?.close();
+    const source = new EventSource(`${API}/jobs/${jobId}/events`);
+    es.current = source;
+    source.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        setJob(j => ({ ...(j||{}), ...data, job_id: jobId }));
+        if (data.status === "completed" || data.status === "failed") source.close();
+      } catch {}
+    };
+    source.onerror = () => { source.close(); };
+  }, []);
+
+  const doPlan = async () => {
+    setErr(null); setBusy(true);
+    try { setPlan(await api("/videos/plan", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ brief })
+    })); } catch(e){ setErr(e.message); } finally { setBusy(false); }
+  };
+
+  const submit = async () => {
+    setErr(null); setBusy(true); setJob(null);
+    try {
+      if (!file) throw new Error("Add a photo first.");
+      const fd = new FormData();
+      fd.append("image", file);
+      let res;
+      if (mode === "quick") {
+        if (brief.trim().length < 5) throw new Error("Write a brief of at least 5 characters.");
+        fd.append("brief", brief);
+        res = await api("/videos/from-prompt", { method:"POST", body: fd });
+        setPlan(res.plan);
+      } else {
+        Object.entries(form).forEach(([k,v]) => fd.append(k, v));
+        res = await api("/videos/generate", { method:"POST", body: fd });
+      }
+      const seed = { job_id: res.job_id, status:"queued",
+        engine: (res.plan?.engine)||form.engine, language:(res.plan?.language)||form.language };
+      setJob(seed);
+      track(res.job_id);
+    } catch(e){ setErr(e.message); } finally { setBusy(false); }
+  };
+
+  const up = (k,v) => setForm(f => ({...f,[k]:v}));
+
+  return (
+    <>
+      <h1 className="eyebrow">studio</h1>
+      <p className="lede">Forge a talking-head video.<span className="mut"> Describe it in a line, or set every dial yourself.</span></p>
+      <div className="studio">
+        <div className="panel">
+          <div className="seg">
+            <button className={mode==="quick"?"on":""} onClick={()=>setMode("quick")}>Quick — from a brief</button>
+            <button className={mode==="advanced"?"on":""} onClick={()=>setMode("advanced")}>Advanced</button>
+          </div>
+
+          {mode === "quick" ? (
+            <>
+              <label className="fl">What should the video say?</label>
+              <textarea className="ta" value={brief} onChange={e=>setBrief(e.target.value)}
+                placeholder="explain compound interest to teenagers, upbeat, 30 seconds, in Hindi" />
+              <label className="fl">Photo</label>
+              <Drop file={file} onFile={pickFile} />
+              <div className="btns">
+                <button className="btn" onClick={doPlan} disabled={busy||brief.trim().length<5}>Preview plan</button>
+                <button className="btn primary" onClick={submit} disabled={busy}>Forge video</button>
+              </div>
+              {plan && (
+                <div className="plan">
+                  {["topic","tone","duration_seconds","language","voice","engine"].map(k=>(
+                    <div className="pr" key={k}><span className="k">{k.replace("_seconds","")}</span><span className="v">{String(plan[k])}</span></div>
+                  ))}
+                  {plan.rationale && <div className="why">{plan.rationale}</div>}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <label className="fl">Topic</label>
+              <input className="inp" value={form.topic} onChange={e=>up("topic",e.target.value)}
+                placeholder="What the video is about" />
+              <div className="row2">
+                <div><label className="fl">Tone</label>
+                  <select className="sel" value={form.tone} onChange={e=>up("tone",e.target.value)}>
+                    {["professional","casual","enthusiastic","formal","friendly"].map(t=><option key={t}>{t}</option>)}
+                  </select></div>
+                <div><label className="fl">Duration (s)</label>
+                  <input className="inp" type="number" min="15" max="300" value={form.duration_seconds}
+                    onChange={e=>up("duration_seconds",+e.target.value)} /></div>
+              </div>
+              <div className="row2">
+                <div><label className="fl">Language</label>
+                  <select className="sel" value={form.language} onChange={e=>up("language",e.target.value)}>
+                    {[["en","English"],["hi","Hindi"],["mr","Marathi"],["ta","Tamil"],["es","Spanish"],["fr","French"],["de","German"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                  </select></div>
+                <div><label className="fl">Voice</label>
+                  <select className="sel" value={form.voice} onChange={e=>up("voice",e.target.value)}>
+                    {["professional_female","professional_male","casual_female","casual_male","narrator"].map(v=><option key={v}>{v}</option>)}
+                  </select></div>
+              </div>
+              <label className="fl">Engine</label>
+              <select className="sel" value={form.engine} onChange={e=>up("engine",e.target.value)}>
+                {(engines.engines||["sadtalker"]).map(v=><option key={v}>{v}</option>)}
+              </select>
+              <label className="fl">Photo</label>
+              <Drop file={file} onFile={pickFile} />
+              <div className="btns">
+                <button className="btn primary" onClick={submit} disabled={busy}>Forge video</button>
+              </div>
+            </>
+          )}
+          {err && <div className="err">{err}</div>}
+        </div>
+
+        <div className="panel">
+          <h3>The forge</h3>
+          <Forge image={imgUrl} job={job} />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ---- dashboard ----
+function Dashboard() {
+  const [metrics, setMetrics] = useState(null);
+  const [jobs, setJobs] = useState([]);
+  const [dlq, setDlq] = useState([]);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    let live = true;
+    const load = async () => {
+      try {
+        const [m, j, d] = await Promise.all([
+          api("/metrics/summary").catch(()=>null),
+          api("/jobs?limit=20").catch(()=>({jobs:[]})),
+          api("/jobs-dlq").catch(()=>({entries:[]})),
+        ]);
+        if (!live) return;
+        setMetrics(m); setJobs(j.jobs||[]); setDlq(d.entries||[]);
+      } catch {}
+    };
+    load();
+    const t = setInterval(()=>setTick(x=>x+1), 4000);
+    return () => { live=false; clearInterval(t); };
+  }, [tick]);
+
+  const sumCost = (provs) => provs ? Object.values(provs).reduce((a,p)=>a+(p.cost_usd||0),0) : 0;
+  const callsOf = (provs) => provs ? Object.values(provs).reduce((a,p)=>a+(p.calls||0),0) : 0;
+  const rateOf = (provs) => {
+    if (!provs) return null;
+    const c = callsOf(provs); if (!c) return null;
+    const ok = Object.values(provs).reduce((a,p)=>a+(p.calls||0)*(p.success_rate||0),0);
+    return ok/c;
+  };
+  const llmProv = metrics?.llm_providers;
+  const ttsProv = metrics?.tts_providers;
+  const av = metrics?.avatar || {};
+  const pct = (x) => x==null ? "—" : Math.round(x*100)+"%";
+  const usd = (x) => x==null ? "$0" : "$"+Number(x).toFixed(4);
+  const age = (iso) => { if(!iso) return "—"; const s=(Date.now()-new Date(iso))/1000;
+    return s<60?`${s|0}s`:s<3600?`${s/60|0}m`:`${s/3600|0}h`; };
+
+  return (
+    <>
+      <h1 className="eyebrow">dashboard</h1>
+      <p className="lede">What the orchestration layer is doing.<span className="mut"> Computed from the audit tables, refreshed live.</span></p>
+
+      <div className="tiles">
+        <div className="tile"><div className="lab">Total spend</div>
+          <div className="big ember">{usd(metrics?.total_cost_usd)}</div>
+          <div className="sub">LLM + speech, lifetime</div></div>
+        <div className="tile"><div className="lab">LLM fallback rate</div>
+          <div className="big">{pct(metrics?.llm_fallback_rate)}</div>
+          <div className="sub">{callsOf(llmProv)} calls · {Object.keys(llmProv||{}).length} providers</div></div>
+        <div className="tile"><div className="lab">Avatar success</div>
+          <div className="big done">{pct(av.success_rate)}</div>
+          <div className="sub">{av.calls||0} renders · {av.avg_latency_ms||0}ms avg</div></div>
+        <div className="tile"><div className="lab">Speech success</div>
+          <div className="big done">{pct(rateOf(ttsProv))}</div>
+          <div className="sub">{callsOf(ttsProv)} synth · {usd(sumCost(ttsProv))}</div></div>
+      </div>
+
+      <div className="sec-h"><h3>Recent jobs</h3><span className="rf">auto-refresh 4s</span></div>
+      <table className="tbl">
+        <thead><tr><th>job</th><th>status</th><th>stage</th><th>engine</th><th>title</th><th>age</th></tr></thead>
+        <tbody>
+          {jobs.length===0 && <tr><td colSpan="6" className="muted-empty">no jobs yet — forge one in the studio</td></tr>}
+          {jobs.map(j=>(
+            <tr key={j.job_id}>
+              <td>{j.job_id?.slice(0,10)}…</td>
+              <td><span className={"pill "+j.status}>{j.status}</span></td>
+              <td>{j.current_stage||"—"}</td>
+              <td>{j.engine||"—"}</td>
+              <td style={{fontFamily:"var(--sans)",color:"var(--muted)"}}>{j.script_title||"—"}</td>
+              <td>{age(j.created_at)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {dlq.length>0 && <>
+        <div className="sec-h"><h3>Dead-letter queue</h3><span className="rf">{dlq.length} stuck</span></div>
+        <table className="tbl dlq">
+          <thead><tr><th>job</th><th>error</th><th>when</th></tr></thead>
+          <tbody>{dlq.map((e,i)=>(
+            <tr key={i}><td>{(e.job_id||"").slice(0,10)}…</td><td>{e.error_type||e.error||"failed"}</td><td>{age(e.failed_at)}</td></tr>
+          ))}</tbody>
+        </table>
+      </>}
+    </>
+  );
+}
+
+function App() {
+  const [view, setView] = useState("studio");
+  const [engines, setEngines] = useState({ engines:["sadtalker"], default:"sadtalker" });
+  const [health, setHealth] = useState(null);
+
+  useEffect(() => {
+    api("/avatar/engines").then(setEngines).catch(()=>{});
+    api("/health").then(setHealth).catch(()=>setHealth({status:"down"}));
+  }, []);
+
+  const ok = health?.status === "ok" || health?.status === "healthy";
+
+  return (
+    <>
+      <div className="topbar"><div className="wrap">
+        <div className="brand"><Anvil/> avatarforge</div>
+        <div className="nav">
+          <button className={view==="studio"?"on":""} onClick={()=>setView("studio")}>Studio</button>
+          <button className={view==="dashboard"?"on":""} onClick={()=>setView("dashboard")}>Dashboard</button>
+        </div>
+        <div className="ver">
+          <span className="dot" style={{background: ok?"var(--done)":"var(--fail)"}}/>
+          {ok? "api live":"api down"} · <a href="/docs">/docs</a>
+        </div>
+      </div></div>
+      <div className="wrap">
+        {view==="studio" ? <Studio engines={engines} /> : <Dashboard />}
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

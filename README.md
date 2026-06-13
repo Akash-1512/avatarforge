@@ -42,7 +42,7 @@ topic ──► LLM script ──► neural TTS ──► lip-sync inference ─
 | Avatar inference (CPU, 256px) | ~28min for a 15s video (~12.7 s/frame) |
 | Eval harness — LLM-as-Judge | 4.75/5 overall (flow 5.0, tone 5.0, naturalness 4.67, hook 4.33) |
 | Eval harness — deterministic | duration accuracy 0.996, pacing 1.0, speakability 1.0 |
-| Tests | 134 passing |
+| Tests | 136 passing |
 
 The judge also surfaced real weaknesses: scripts run slightly word-light for
 their claimed durations (`spoken_duration_consistency` 0.65), and one opener
@@ -98,6 +98,26 @@ applies `k8s/`, creates secrets from `.env`, and runs migrations.
 - [x] Phase 6 — MLflow tracking, Langfuse traces, eval harness with regression gate
 - [x] Phase 7 — Kubernetes manifests, rate limiting, Key Vault-ready secrets
 - [x] Phase 8 — Integration contract, OpenAPI polish, v1.0.0
+
+## Operator console (v1.4)
+
+A single-page console ships with the API and serves at `/` — open
+`http://localhost:8000` after `make dev`. It's a developer/operator surface for
+driving and observing the system, not a consumer product; the point is to make
+the orchestration *visible*.
+
+- **Studio** — forge a video from a one-line brief (prompt-to-video, with a plan
+  preview) or from the full form (tone, duration, language, voice, engine). The
+  source photo and a live pipeline track sit on the right: the four stages
+  (Script -> Voice -> Avatar -> Package) light up as Server-Sent Events arrive,
+  ember while running, cooling to green as each completes, and the finished MP4
+  plays inline.
+- **Dashboard** — spend, LLM fallback rate, avatar/speech success, and a
+  live-refreshing jobs table, all computed from the audit tables via
+  `/metrics/summary`; the dead-letter queue surfaces only when something is stuck.
+
+It's one self-contained file (`backend/frontend/index.html`, React via CDN, no
+build step) served by an explicit FastAPI route, same-origin with the API.
 
 ## Prompt-to-video agent (v1.3)
 
@@ -187,7 +207,7 @@ these require re-architecting; the seams exist.
 
 FastAPI · LangGraph 1.x · Celery · PostgreSQL · Redis · SadTalker · HunyuanVideo-Avatar · FFmpeg ·
 Azure OpenAI · Azure Speech (140+ locales) · Chatterbox voice clone · MLflow · Langfuse · SQLAlchemy 2 async · Alembic
-· slowapi · Docker Compose · Kubernetes · pytest (134 tests)
+· slowapi · Docker Compose · Kubernetes · pytest (136 tests)
 
 ## License
 

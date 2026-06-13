@@ -40,3 +40,29 @@ def test_openapi_docs_served(client: TestClient) -> None:
 
 def test_unknown_route_404(client: TestClient) -> None:
     assert client.get("/api/v1/nonexistent").status_code == 404
+
+
+def test_engines_listed():
+    from fastapi.testclient import TestClient
+
+    from backend.main import create_app
+
+    client = TestClient(create_app())
+    resp = client.get("/api/v1/avatar/engines")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "sadtalker" in body["engines"]
+    assert body["default"]
+
+
+def test_root_serves_console():
+    from fastapi.testclient import TestClient
+
+    from backend.main import create_app
+
+    client = TestClient(create_app())
+    resp = client.get("/")
+    # Either the console HTML (200) or a clean 404 JSON if not built — never a crash.
+    assert resp.status_code in (200, 404)
+    if resp.status_code == 200:
+        assert "avatarforge" in resp.text.lower()
