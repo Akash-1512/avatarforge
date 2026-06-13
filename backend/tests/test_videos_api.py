@@ -133,3 +133,55 @@ def test_sse_streams_until_terminal(app):
     # deduplicated transitions: script, avatar, completed
     assert len(events) == 3
     assert "completed" in events[-1]
+
+
+def _fake_plan():
+    from backend.models.schemas import VideoPlan
+
+    return VideoPlan(
+        topic="Compound interest for teens",
+        tone="enthusiastic",
+        duration_seconds=30,
+        language="en",
+        voice="casual_female",
+        engine="sadtalker",
+        rationale="teen audience",
+    )
+
+
+def test_plan_endpoint_returns_spec(app, monkeypatch):
+    class FakePlanner:
+        async def plan(self, brief):
+            return _fake_plan()
+
+    monkeypatch.setattr(
+        "backend.services.planner.service.get_planner_service", lambda: FakePlanner()
+    )
+    client = TestClient(app)
+    resp = client.post("/api/v1/videos/plan", json={"brief": "explain compound interest to teens"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["tone"] == "enthusiastic"
+    assert body["duration_seconds"] == 30
+    assert body["voice"] == "casual_female"
+
+
+def test_from_prompt_plans_and_enqueues(app, monkeypatch):
+    class FakePlanner:
+        async def plan(self, brief):
+            return _fake_plan()
+
+    monkeypatch.setattr(
+        "backend.services.planner.service.get_planner_service", lambda: FakePlanner()
+    )
+    client = TestClient(app)
+    resp = client.post(
+        "/api/v1/videos/from-prompt",
+        files={"image": ("face.png", _png(), "image/png")},
+        data={"brief": "explain compound interest to teenagers, upbeat, 30s"},
+    )
+    assert resp.status_code == 202
+    body = resp.json()
+    assert "job_id" in body
+    assert body["plan"]["tone"] == "enthusiastic"
+    assert app.state.enqueued  # task was queued

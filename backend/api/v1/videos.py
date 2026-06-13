@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 
 from backend.api.ratelimit import build_limiter
 from backend.config import get_settings
+from backend.models.schemas import PlanRequest
 from backend.services.avatar.validation import ImageValidationError, validate_source_image
 from backend.services.jobs.repository import JobRepository, get_job_repository
 from backend.services.storage.local import get_storage
@@ -97,6 +98,99 @@ async def submit_video_job(
         "status_url": f"/api/v1/jobs/{job.id}",
         "events_url": f"/api/v1/jobs/{job.id}/events",
     }
+
+
+async def _create_and_enqueue(
+    *,
+    image_bytes: bytes,
+    topic: str,
+    tone: str,
+    duration_seconds: int,
+    language: str,
+    voice: str,
+    preprocess: str,
+    engine: str | None,
+    repo: JobRepository,
+) -> dict:
+    """Validate image + engine, persist, enqueue. Shared by /generate and /from-prompt."""
+    try:
+        ext = validate_source_image(image_bytes)
+    except ImageValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    from backend.services.avatar.client import AvatarEngineError
+    from backend.services.avatar.service import get_avatar_service
+
+    try:
+        engine_name, _ = get_avatar_service().resolve_engine(engine)
+    except AvatarEngineError as exc:
+        raise HTTPException(status_code=exc.status_code or 503, detail=str(exc)) from exc
+
+    stored_image = await get_storage().save_bytes(image_bytes, ext)
+    job = await repo.create(
+        topic=topic,
+        tone=tone,
+        duration_seconds=duration_seconds,
+        voice=voice,
+        language=language,
+        image_file_id=stored_image.file_id,
+        preprocess=preprocess,
+        engine=engine_name,
+    )
+    from backend.workers.tasks import generate_video_task
+
+    generate_video_task.delay(job.id)
+    return {
+        "job_id": job.id,
+        "status": "queued",
+        "status_url": f"/api/v1/jobs/{job.id}",
+        "events_url": f"/api/v1/jobs/{job.id}/events",
+    }
+
+
+@router.post("/videos/plan")
+async def plan_video(body: PlanRequest) -> dict:
+    """Turn a free-text brief into a reviewable job spec (no job created).
+
+    The HITL-friendly half of the prompt-to-video agent: plan, inspect, then
+    submit /videos/from-prompt (or /videos/generate with the planned values).
+    """
+    from backend.services.planner.service import get_planner_service
+
+    plan = await get_planner_service().plan(body.brief)
+    return plan.model_dump()
+
+
+@router.post("/videos/from-prompt", status_code=202)
+@_generate_limiter.limit(lambda: get_settings().rate_limit_generate)
+async def from_prompt(
+    request: Request,
+    image: UploadFile = File(..., description="Front-facing photo, PNG/JPEG, min 256px"),
+    brief: str = Form(..., min_length=5, max_length=1000),
+    repo: JobRepository = Depends(get_job_repository),
+) -> dict:
+    """Plan a video from a brief and submit it in one shot.
+
+    Returns the chosen plan alongside the job handle, so the caller sees what
+    the agent decided even though it didn't fill any fields.
+    """
+    from backend.services.planner.service import get_planner_service
+
+    image_bytes = await image.read()
+    plan = await get_planner_service().plan(brief)
+    result = await _create_and_enqueue(
+        image_bytes=image_bytes,
+        topic=plan.topic,
+        tone=plan.tone,
+        duration_seconds=plan.duration_seconds,
+        language=plan.language,
+        voice=plan.voice,
+        preprocess="crop",
+        engine=plan.engine,
+        repo=repo,
+    )
+    result["plan"] = plan.model_dump()
+    return result
 
 
 @router.get("/jobs/{job_id}")

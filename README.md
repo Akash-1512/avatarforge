@@ -42,7 +42,7 @@ topic ──► LLM script ──► neural TTS ──► lip-sync inference ─
 | Avatar inference (CPU, 256px) | ~28min for a 15s video (~12.7 s/frame) |
 | Eval harness — LLM-as-Judge | 4.75/5 overall (flow 5.0, tone 5.0, naturalness 4.67, hook 4.33) |
 | Eval harness — deterministic | duration accuracy 0.996, pacing 1.0, speakability 1.0 |
-| Tests | 126 passing |
+| Tests | 134 passing |
 
 The judge also surfaced real weaknesses: scripts run slightly word-light for
 their claimed durations (`spoken_duration_consistency` 0.65), and one opener
@@ -98,6 +98,30 @@ applies `k8s/`, creates secrets from `.env`, and runs migrations.
 - [x] Phase 6 — MLflow tracking, Langfuse traces, eval harness with regression gate
 - [x] Phase 7 — Kubernetes manifests, rate limiting, Key Vault-ready secrets
 - [x] Phase 8 — Integration contract, OpenAPI polish, v1.0.0
+
+## Prompt-to-video agent (v1.3)
+
+The form has six fields; most people just want to describe what they want. The
+planner turns a one-line brief into a full job spec:
+
+```
+POST /videos/plan      { "brief": "explain compound interest to teenagers, upbeat, 30s in Hindi" }
+-> { "topic": "...", "tone": "enthusiastic", "duration_seconds": 30,
+     "language": "hi", "voice": "casual_female", "engine": "sadtalker",
+     "rationale": "..." }
+```
+
+`POST /videos/from-prompt` (brief + image) plans and submits in one call,
+returning the chosen plan alongside the job handle.
+
+What keeps it production-grade rather than a demo: the LLM proposes, but the
+schema disposes. Its JSON is validated against the same field constraints the
+`/videos/generate` form enforces — a hallucinated voice or a 9000-second
+duration fails validation and triggers one corrective retry, then degrades to
+safe defaults rather than erroring. It reuses the existing LLM service, so it
+inherits the Azure->OpenAI fallback and circuit breakers with no new failure
+surface. `/videos/plan` returns the spec without committing, so a UI can show
+the plan for review before spending a render (the HITL seam).
 
 ## Languages & voices (v1.2)
 
@@ -163,7 +187,7 @@ these require re-architecting; the seams exist.
 
 FastAPI · LangGraph 1.x · Celery · PostgreSQL · Redis · SadTalker · HunyuanVideo-Avatar · FFmpeg ·
 Azure OpenAI · Azure Speech (140+ locales) · Chatterbox voice clone · MLflow · Langfuse · SQLAlchemy 2 async · Alembic
-· slowapi · Docker Compose · Kubernetes · pytest (126 tests)
+· slowapi · Docker Compose · Kubernetes · pytest (134 tests)
 
 ## License
 

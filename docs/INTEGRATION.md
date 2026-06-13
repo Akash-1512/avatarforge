@@ -76,6 +76,16 @@ jobs list, not a spinner.
 `Content-Type: video/mp4` and `+faststart`, so it streams in a `<video>` tag
 directly. Files are content-addressed (UUID names); URLs are stable.
 
+## Prompt-to-video (v1.3)
+
+`POST /videos/plan` — body `{"brief": "..."}` -> a `VideoPlan` (topic, tone,
+duration_seconds, language, voice, engine, rationale). No job created; for
+review/HITL.
+
+`POST /videos/from-prompt` — multipart `image` + `brief` -> plans and submits
+in one shot; 202 with `{job_id, ..., plan}`. Same rate limit as
+`/videos/generate`.
+
 ## Other endpoints
 
 | endpoint | purpose |

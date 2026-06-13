@@ -84,3 +84,30 @@ class AvatarResponse(BaseModel):
     latency_ms: int
     preprocess: str
     enhancer: bool
+
+
+class PlanRequest(BaseModel):
+    brief: str = Field(
+        ...,
+        min_length=5,
+        max_length=1000,
+        description="One-line idea, e.g. 'explain compound interest to teenagers, upbeat, 30s'",
+    )
+
+
+class VideoPlan(BaseModel):
+    """A fully-resolved job spec the planner produced from a free-text brief.
+
+    Field constraints match the /videos/generate form exactly, so a valid plan
+    is always a submittable job — the LLM cannot invent an out-of-range value.
+    """
+
+    topic: str = Field(..., min_length=3, max_length=500)
+    tone: Literal["professional", "casual", "enthusiastic", "formal", "friendly"] = "professional"
+    duration_seconds: int = Field(60, ge=15, le=300)
+    language: str = Field("en", min_length=2, max_length=5)
+    voice: Literal[
+        "professional_female", "professional_male", "casual_female", "casual_male", "narrator"
+    ] = "professional_female"
+    engine: Literal["sadtalker", "hunyuan", "fal"] = "sadtalker"
+    rationale: str = Field("", max_length=500, description="Why the planner chose these settings")
