@@ -126,6 +126,14 @@ the orchestration *visible*.
   full generated script shown on demand, plus its language, engine, voice, and
   length. The full narration is persisted on the job row (migration 0004), so a
   completed run is a durable, replayable record — not a one-shot download.
+- **Digital characters + Azure Sora 2 scenes (v2.0)** — the first cut of the
+  content-creation platform. Ingest a photo, video, or live capture into a reusable
+  **Character** (FFmpeg samples the sharpest reference frames; migration 0007), pick a
+  default style, and generate a scene. Scene generation runs through an engine registry
+  that routes on **content policy first**: Azure Sora 2 ($0.10/sec, verified) handles
+  text-to-scene and stylized content but rejects real human faces, so real-person
+  references route to a reference-capable engine (Kling on fal). A **Characters** gallery
+  in the console manages the assets. See `ROADMAP.md` for the full v2 plan.
 - **Conversational planner with per-user memory** — an Assistant surface where
   you describe a video and refine it across turns. It has the two memory layers a
   real agentic product needs: short-term (the chat thread, so "make it more
