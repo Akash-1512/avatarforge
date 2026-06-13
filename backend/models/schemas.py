@@ -47,9 +47,17 @@ class ScriptResponse(BaseModel):
 class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5000)
     voice: Literal[
-        "professional_female", "professional_male", "casual_female", "casual_male", "narrator"
+        "professional_female",
+        "professional_male",
+        "casual_female",
+        "casual_male",
+        "narrator",
+        "cloned",
     ] = "professional_female"
     speaking_rate: float = Field(1.0, ge=0.5, le=2.0)
+    language: str = Field(
+        "en", min_length=2, max_length=5, description="ISO-639-1, e.g. hi, mr, ta"
+    )
 
 
 class TTSResponse(BaseModel):

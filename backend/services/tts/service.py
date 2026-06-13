@@ -17,12 +17,17 @@ from backend.services.storage.base import BaseStorageBackend
 from backend.services.storage.local import get_storage
 from backend.services.tts.audio import normalize_to_sadtalker_spec, wav_duration_seconds
 from backend.services.tts.base import AllTTSProvidersFailedError, BaseTTSProvider, TTSProviderError
+from backend.services.tts.chatterbox import ChatterboxProvider
 from backend.services.tts.providers import AzureSpeechProvider, OpenAITTSProvider
 
 logger = get_logger(__name__)
 
 # USD per character
-_COST_PER_CHAR = {"azure_speech": 0.0, "openai_tts": 15.0 / 1_000_000}
+_COST_PER_CHAR = {
+    "azure_speech": 0.0,
+    "openai_tts": 15.0 / 1_000_000,
+    "chatterbox_fal": 0.025 / 1_000,
+}
 
 UsageRecorder = Callable[[dict], Awaitable[None]]
 
@@ -53,8 +58,16 @@ class TTSService:
 
     async def synthesize(self, request: TTSRequest) -> TTSResponse:
         last_error: Exception | None = None
+        wants_clone = request.voice == "cloned"
 
         for provider in self.providers:
+            is_clone_provider = provider.name == "chatterbox_fal"
+            # Voice cloning is opt-in and exclusive: only the clone provider
+            # serves voice="cloned"; conversely it never serves the standard
+            # presets (it's a paid, reference-bound path).
+            if wants_clone != is_clone_provider:
+                continue
+
             if not provider.available:
                 logger.info("tts_provider_skipped_unconfigured", provider=provider.name)
                 continue
@@ -67,7 +80,7 @@ class TTSService:
             started = time.monotonic()
             try:
                 result = await provider.synthesize(
-                    request.text, request.voice, request.speaking_rate
+                    request.text, request.voice, request.speaking_rate, request.language
                 )
                 normalized = await normalize_to_sadtalker_spec(result.audio_bytes)
                 duration = wav_duration_seconds(normalized)
@@ -149,8 +162,15 @@ async def _db_usage_recorder(payload: dict) -> None:
 @lru_cache
 def get_tts_service() -> TTSService:
     settings = get_settings()
+    providers = [AzureSpeechProvider(settings), OpenAITTSProvider(settings)]
+    # Voice cloning is an explicit opt-in (voice="cloned"), not a fallback tier —
+    # it only activates when both a fal key and a reference sample are configured,
+    # and the service routes to it only when the request asks for the cloned voice.
+    chatterbox = ChatterboxProvider(settings)
+    if chatterbox.available:
+        providers.append(chatterbox)
     return TTSService(
-        providers=[AzureSpeechProvider(settings), OpenAITTSProvider(settings)],
+        providers=providers,
         storage=get_storage(),
         usage_recorder=_db_usage_recorder,
     )

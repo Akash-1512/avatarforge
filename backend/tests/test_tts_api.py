@@ -43,7 +43,7 @@ def test_voices_listed(app):
     assert resp.status_code == 200
     body = resp.json()
     assert "professional_female" in body
-    assert body["professional_female"]["azure_voice"] == "en-IN-NeerjaNeural"
+    assert body["professional_female"]["voices"]["en"]["azure_voice"] == "en-IN-NeerjaNeural"
 
 
 def test_synthesize_success(app):

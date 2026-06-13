@@ -42,7 +42,7 @@ topic ──► LLM script ──► neural TTS ──► lip-sync inference ─
 | Avatar inference (CPU, 256px) | ~28min for a 15s video (~12.7 s/frame) |
 | Eval harness — LLM-as-Judge | 4.75/5 overall (flow 5.0, tone 5.0, naturalness 4.67, hook 4.33) |
 | Eval harness — deterministic | duration accuracy 0.996, pacing 1.0, speakability 1.0 |
-| Tests | 102 passing |
+| Tests | 126 passing |
 
 The judge also surfaced real weaknesses: scripts run slightly word-light for
 their claimed durations (`spoken_duration_consistency` 0.65), and one opener
@@ -99,6 +99,27 @@ applies `k8s/`, creates secrets from `.env`, and runs migrations.
 - [x] Phase 7 — Kubernetes manifests, rate limiting, Key Vault-ready secrets
 - [x] Phase 8 — Integration contract, OpenAPI polish, v1.0.0
 
+## Languages & voices (v1.2)
+
+Scripts and speech aren't English-only. The script LLM already generates in the
+requested language; v1.2 makes the voice match it. A user-facing role
+(`professional_female`, `narrator`, ...) resolves to a *native neural voice per
+language* — so a Hindi script is spoken by a Hindi voice, Marathi by Marathi,
+Tamil by Tamil, with the SSML locale set correctly. English is the baseline for
+every role; unmapped languages degrade to it gracefully. Azure Speech covers
+140+ locales; the curated matrix leads with the India set (hi, mr, ta) plus
+es/fr/de, and extends by adding rows.
+
+`POST /videos/generate` and `/tts/synthesize` take a `language` field (ISO-639-1).
+`GET /tts/voices` returns the full role -> language -> voice matrix.
+
+**Voice cloning** ships as an opt-in TTS path: `voice="cloned"` routes to
+Chatterbox (Resemble AI, MIT-licensed) via fal, speaking arbitrary text in a
+voice cloned from a short reference sample (`VOICE_CLONE_REFERENCE_URL`). It's
+exclusive and pay-per-use (~$0.025/1K chars) — the standard free presets never
+touch it, and it never serves them. Same `BaseTTSProvider` contract, same
+circuit-breaker and audit machinery as Azure and OpenAI.
+
 ## Avatar engines (v1.1: dual-engine)
 
 The model-server contract (`/infer`: image + audio in, MP4 out) is the seam
@@ -141,8 +162,8 @@ these require re-architecting; the seams exist.
 ## Stack
 
 FastAPI · LangGraph 1.x · Celery · PostgreSQL · Redis · SadTalker · HunyuanVideo-Avatar · FFmpeg ·
-Azure OpenAI · Azure Speech · MLflow · Langfuse · SQLAlchemy 2 async · Alembic
-· slowapi · Docker Compose · Kubernetes · pytest (102 tests)
+Azure OpenAI · Azure Speech (140+ locales) · Chatterbox voice clone · MLflow · Langfuse · SQLAlchemy 2 async · Alembic
+· slowapi · Docker Compose · Kubernetes · pytest (126 tests)
 
 ## License
 

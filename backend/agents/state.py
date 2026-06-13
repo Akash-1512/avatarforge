@@ -12,6 +12,7 @@ class VideoPipelineState(BaseModel):
     tone: str = "professional"
     duration_seconds: int = 60
     voice: str = "professional_female"
+    language: str = "en"
     image_file_id: str
     preprocess: str = "crop"
     engine: str = "sadtalker"

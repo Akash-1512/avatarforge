@@ -35,6 +35,7 @@ class VideoJob(Base):
     tone: Mapped[str] = mapped_column(String(20), default="professional")
     duration_seconds: Mapped[int] = mapped_column(Integer, default=60)
     voice: Mapped[str] = mapped_column(String(40), default="professional_female")
+    language: Mapped[str] = mapped_column(String(5), default="en")
     image_file_id: Mapped[str] = mapped_column(String(64))
     preprocess: Mapped[str] = mapped_column(String(20), default="crop")
     engine: Mapped[str] = mapped_column(String(20), default="sadtalker")

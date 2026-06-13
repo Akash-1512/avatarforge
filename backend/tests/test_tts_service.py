@@ -47,7 +47,7 @@ class FakeTTS(BaseTTSProvider):
     def available(self):
         return self._configured
 
-    async def synthesize(self, text, voice_preset, speaking_rate=1.0):
+    async def synthesize(self, text, voice_preset, speaking_rate=1.0, language="en"):
         self.calls += 1
         if self._fail:
             raise TTSProviderError(self.name, RuntimeError("simulated outage"))
@@ -109,3 +109,23 @@ async def test_circuit_opens_after_threshold(storage):
     assert azure.calls == 2
     await svc.synthesize(REQ)  # circuit open — azure skipped
     assert azure.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_cloned_voice_routes_only_to_chatterbox(storage):
+    """voice='cloned' is served exclusively by the chatterbox provider."""
+    azure = FakeTTS("azure_speech")
+    clone = FakeTTS("chatterbox_fal")
+    svc = TTSService([azure, clone], storage)
+    await svc.synthesize(TTSRequest(text="speak in my cloned voice", voice="cloned"))
+    assert clone.calls == 1 and azure.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_standard_voice_never_routes_to_chatterbox(storage):
+    """A normal preset never touches the paid clone provider."""
+    azure = FakeTTS("azure_speech")
+    clone = FakeTTS("chatterbox_fal")
+    svc = TTSService([azure, clone], storage)
+    await svc.synthesize(TTSRequest(text="standard voice please", voice="professional_female"))
+    assert azure.calls == 1 and clone.calls == 0

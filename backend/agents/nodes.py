@@ -29,7 +29,10 @@ class PipelineNodes:
         started = time.monotonic()
         resp = await self.llm.generate_script(
             ScriptRequest(
-                topic=state.topic, tone=state.tone, duration_seconds=state.duration_seconds
+                topic=state.topic,
+                tone=state.tone,
+                duration_seconds=state.duration_seconds,
+                language=state.language,
             )
         )
         narration = " ".join(seg.text for seg in resp.segments)
@@ -46,7 +49,9 @@ class PipelineNodes:
     async def tts_node(self, state: VideoPipelineState) -> dict:
         await self.repo.set_stage(state.job_id, "tts")
         started = time.monotonic()
-        resp = await self.tts.synthesize(TTSRequest(text=state.narration, voice=state.voice))
+        resp = await self.tts.synthesize(
+            TTSRequest(text=state.narration, voice=state.voice, language=state.language)
+        )
         elapsed = int((time.monotonic() - started) * 1000)
         logger.info("node_tts_done", job_id=state.job_id, ms=elapsed)
         return {

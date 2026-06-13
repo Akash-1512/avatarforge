@@ -83,6 +83,7 @@ async def run_pipeline(job_id: str, nodes: PipelineNodes, repo) -> dict:
         tone=job.tone,
         duration_seconds=job.duration_seconds,
         voice=job.voice,
+        language=getattr(job, "language", "en"),
         image_file_id=job.image_file_id,
         preprocess=job.preprocess,
         engine=getattr(job, "engine", "sadtalker"),

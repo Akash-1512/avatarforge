@@ -11,7 +11,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 from backend.config import Settings
 from backend.services.tts.base import BaseTTSProvider, SynthesisResult, TTSProviderError
 from backend.services.tts.ssml import build_ssml
-from backend.services.tts.voices import DEFAULT_VOICE, VOICE_PRESETS
+from backend.services.tts.voices import DEFAULT_LANGUAGE, DEFAULT_VOICE, resolve_voice
 
 
 class _RetryableHTTPError(Exception):
@@ -59,10 +59,14 @@ class AzureSpeechProvider(BaseTTSProvider):
         return resp.content
 
     async def synthesize(
-        self, text: str, voice_preset: str = DEFAULT_VOICE, speaking_rate: float = 1.0
+        self,
+        text: str,
+        voice_preset: str = DEFAULT_VOICE,
+        speaking_rate: float = 1.0,
+        language: str = DEFAULT_LANGUAGE,
     ) -> SynthesisResult:
-        preset = VOICE_PRESETS.get(voice_preset, VOICE_PRESETS[DEFAULT_VOICE])
-        ssml = build_ssml(text, preset.azure_voice, speaking_rate)
+        preset = resolve_voice(voice_preset, language)
+        ssml = build_ssml(text, preset.azure_voice, speaking_rate, locale=preset.locale)
         try:
             audio = await self._call(ssml)
             return SynthesisResult(
@@ -84,11 +88,15 @@ class OpenAITTSProvider(BaseTTSProvider):
         return bool(self._settings.openai_api_key)
 
     async def synthesize(
-        self, text: str, voice_preset: str = DEFAULT_VOICE, speaking_rate: float = 1.0
+        self,
+        text: str,
+        voice_preset: str = DEFAULT_VOICE,
+        speaking_rate: float = 1.0,
+        language: str = DEFAULT_LANGUAGE,
     ) -> SynthesisResult:
         from openai import AsyncOpenAI
 
-        preset = VOICE_PRESETS.get(voice_preset, VOICE_PRESETS[DEFAULT_VOICE])
+        preset = resolve_voice(voice_preset, language)
         try:
             client = AsyncOpenAI(api_key=self._settings.openai_api_key)
             resp = await client.audio.speech.create(
