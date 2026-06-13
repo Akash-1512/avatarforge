@@ -191,6 +191,22 @@
     color:#f0a89f;border-radius:8px;padding:9px 11px;font-family:var(--mono);font-size:12px}
   .trace-empty{font-family:var(--mono);font-size:12px;color:var(--faint);padding:8px 0}
 
+  /* architecture view */
+  .arch-wrap{margin-top:8px}
+  .arch-svg{width:100%;height:auto;display:block;background:var(--base);
+    border:1px solid var(--border);border-radius:14px}
+  .arch-legend{display:flex;flex-wrap:wrap;gap:18px;margin-top:16px;
+    font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .arch-legend span{display:inline-flex;align-items:center;gap:7px}
+  .arch-legend i{width:13px;height:13px;border-radius:3px;display:inline-block}
+  .arch-notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:14px;margin-top:22px}
+  .arch-card{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:15px 16px}
+  .arch-card h4{font-family:var(--display);font-size:13px;margin:0 0 7px;color:var(--hot)}
+  .arch-card p{margin:0;font-size:12.5px;line-height:1.55;color:var(--muted)}
+  .arch-card code{font-family:var(--mono);font-size:11.5px;color:var(--text);
+    background:var(--base);padding:1px 5px;border-radius:4px}
+
   /* library gallery */
   .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;padding-bottom:10px}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;
@@ -790,6 +806,146 @@ function Monitoring() {
   );
 }
 
+// ---- architecture view (system design, for the reader who won't open the code) ----
+function Architecture({ engines }) {
+  const live = engines?.engines || ["sadtalker"];
+  const def = engines?.default || "sadtalker";
+  const C = {
+    box: "var(--surface-2)", stroke: "var(--border)", text: "var(--text)",
+    mut: "var(--muted)", ember: "var(--ember)", hot: "var(--hot)",
+    done: "var(--done)", line: "#5b5347", base: "var(--base)",
+  };
+  // node helper
+  const N = (x, y, w, h, title, sub, accent) => (
+    <g>
+      <rect x={x} y={y} width={w} height={h} rx="9" fill={C.box}
+        stroke={accent || C.stroke} strokeWidth={accent ? 1.6 : 1} />
+      <text x={x + w / 2} y={y + (sub ? 20 : h / 2 + 4)} textAnchor="middle"
+        fontFamily="var(--display)" fontSize="12.5" fill={C.text} fontWeight="500">{title}</text>
+      {sub && <text x={x + w / 2} y={y + 36} textAnchor="middle"
+        fontFamily="var(--mono)" fontSize="10" fill={C.mut}>{sub}</text>}
+    </g>
+  );
+  const arrow = (x1, y1, x2, y2, dashed) => (
+    <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={C.line} strokeWidth="1.5"
+      strokeDasharray={dashed ? "4 4" : "0"} markerEnd="url(#ah)" />
+  );
+
+  return (
+    <div className="arch-wrap">
+      <h1 className="eyebrow">Architecture</h1>
+      <p className="lede">How a photo and a sentence become a video.
+        <span className="mut"> The orchestration layer, drawn — every box is a real service in this repo.</span></p>
+
+      <svg className="arch-svg" viewBox="0 0 980 620" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L7,3 L0,6 Z" fill={C.line} />
+          </marker>
+        </defs>
+
+        {/* ingress */}
+        {N(30, 40, 150, 56, "Client", "photo + brief", C.ember)}
+        {N(30, 130, 150, 56, "FastAPI", "/videos · /plan", null)}
+        {arrow(105, 96, 105, 130)}
+
+        {/* planner agent */}
+        {N(30, 230, 150, 64, "Planner agent", "brief → VideoPlan", C.hot)}
+        {arrow(105, 186, 105, 230)}
+        <text x="190" y="258" fontFamily="var(--mono)" fontSize="9.5" fill={C.mut}>LLM proposes,</text>
+        <text x="190" y="270" fontFamily="var(--mono)" fontSize="9.5" fill={C.mut}>schema disposes</text>
+
+        {/* queue */}
+        {N(30, 340, 150, 56, "Celery + Redis", "async job queue", null)}
+        {arrow(105, 294, 105, 340)}
+
+        {/* pipeline spine (LangGraph) */}
+        <rect x="240" y="120" width="480" height="210" rx="12" fill="none"
+          stroke={C.stroke} strokeDasharray="5 5" />
+        <text x="256" y="142" fontFamily="var(--mono)" fontSize="10.5" fill={C.ember}>LangGraph pipeline · retry + DLQ</text>
+
+        {N(258, 160, 100, 56, "script", null, null)}
+        {N(378, 160, 100, 56, "tts", null, null)}
+        {N(498, 160, 100, 56, "avatar", null, C.ember)}
+        {N(618, 160, 84, 56, "store", null, null)}
+        {arrow(180, 368, 308, 368)}
+        {arrow(308, 340, 308, 216)}
+        {arrow(358, 188, 378, 188)}
+        {arrow(478, 188, 498, 188)}
+        {arrow(598, 188, 618, 188)}
+        {N(378, 250, 220, 50, "notify · SSE stream", "job status → console", null)}
+        {arrow(660, 216, 660, 250)} {arrow(660, 250, 598, 275)}
+
+        {/* providers: script */}
+        {N(258, 400, 100, 64, "Azure OpenAI", "gpt-4.1-mini", C.done)}
+        {N(258, 486, 100, 50, "OpenAI", "fallback", null)}
+        {arrow(308, 216, 308, 400)}
+        {arrow(308, 464, 308, 486, true)}
+
+        {/* providers: tts */}
+        {N(378, 400, 100, 64, "Azure Speech", "neural voices", C.done)}
+        {N(378, 486, 100, 50, "OpenAI TTS", "fallback", null)}
+        {arrow(428, 216, 428, 400)}
+        {arrow(428, 464, 428, 486, true)}
+
+        {/* engine registry: avatar */}
+        <rect x="740" y="120" width="210" height="320" rx="12" fill="none" stroke={C.ember} strokeWidth="1.4" />
+        <text x="756" y="142" fontFamily="var(--mono)" fontSize="10.5" fill={C.ember}>Engine registry · one contract</text>
+        {N(758, 158, 174, 60, "fal · hunyuan-avatar", "managed GPU", live.includes("fal") ? C.done : null)}
+        {N(758, 234, 174, 60, "HunyuanVideo-Avatar", "self-host GPU", live.includes("hunyuan") ? C.done : null)}
+        {N(758, 310, 174, 60, "SadTalker", "self-host CPU · $0", live.includes("sadtalker") ? C.done : null)}
+        <text x="845" y="398" textAnchor="middle" fontFamily="var(--mono)" fontSize="9.5" fill={C.mut}>swappable — same /infer contract</text>
+        <text x="845" y="412" textAnchor="middle" fontFamily="var(--mono)" fontSize="9.5" fill={C.hot}>default: {def}</text>
+        {arrow(598, 188, 758, 188)}
+        {arrow(620, 188, 700, 240, true)}
+        {arrow(620, 188, 700, 330, true)}
+
+        {/* observability rail */}
+        <rect x="240" y="560" width="710" height="44" rx="10" fill={C.base} stroke={C.stroke} />
+        <text x="256" y="578" fontFamily="var(--mono)" fontSize="10" fill={C.mut}>OBSERVABILITY</text>
+        <text x="256" y="593" fontFamily="var(--display)" fontSize="11.5" fill={C.text}>
+          MLflow · Langfuse · per-job trace (job_id correlation across audit tables) · cost + latency + fallback
+        </text>
+        <line x1="595" y1="464" x2="595" y2="560" stroke={C.line} strokeWidth="1" strokeDasharray="3 3" />
+      </svg>
+
+      <div className="arch-legend">
+        <span><i style={{background:"var(--done)"}}/> configured / live</span>
+        <span><i style={{background:"var(--surface-2)",border:"1px solid var(--border)"}}/> defined, not active</span>
+        <span><i style={{background:"var(--ember)"}}/> request path</span>
+        <span>dashed = fallback / alternate engine</span>
+      </div>
+
+      <div className="arch-notes">
+        <div className="arch-card">
+          <h4>Async by design</h4>
+          <p>A render can take minutes, so the API never blocks. <code>/videos/generate</code> enqueues to Celery and returns a job id; the console streams status over SSE and the result lands in the Library.</p>
+        </div>
+        <div className="arch-card">
+          <h4>Every AI call falls back</h4>
+          <p>Script and voice each have a primary and a backup provider behind a circuit breaker. If Azure trips, the call fails over to OpenAI without failing the job — the trace shows when it did.</p>
+        </div>
+        <div className="arch-card">
+          <h4>Three deployment models, one contract</h4>
+          <p>The avatar engine is swappable: managed GPU (fal), self-hosted GPU (Hunyuan), or zero-cost CPU (SadTalker). All implement the same <code>/infer</code> contract, so the pipeline doesn't change when you swap them.</p>
+        </div>
+        <div className="arch-card">
+          <h4>The agent is constrained</h4>
+          <p>The planner turns a one-line brief into a validated <code>VideoPlan</code>. The model proposes; a Pydantic schema disposes — a hallucinated field triggers a corrective retry, then safe defaults. It never crashes the pipeline.</p>
+        </div>
+        <div className="arch-card">
+          <h4>Traced and costed</h4>
+          <p>Every LLM, TTS, and avatar call writes an audit row stamped with the job id. The trace view joins them back into a per-job waterfall — provider, tokens, cost, latency, fallback — visible in the Dashboard.</p>
+        </div>
+        <div className="arch-card">
+          <h4>Failure is handled centrally</h4>
+          <p>Nodes retry transient errors with backoff; logic errors don't retry. A terminally failed job is marked and dead-lettered, not silently lost. Expensive renders aren't replayed on a worker restart.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [view, setView] = useState("studio");
   const [engines, setEngines] = useState({ engines:["sadtalker"], default:"sadtalker" });
@@ -811,6 +967,7 @@ function App() {
           <button className={view==="library"?"on":""} onClick={()=>setView("library")}>Library</button>
           <button className={view==="dashboard"?"on":""} onClick={()=>setView("dashboard")}>Dashboard</button>
           <button className={view==="monitoring"?"on":""} onClick={()=>setView("monitoring")}>Monitoring</button>
+          <button className={view==="architecture"?"on":""} onClick={()=>setView("architecture")}>Architecture</button>
         </div>
         <div className="ver">
           <span className="dot" style={{background: ok?"var(--done)":"var(--fail)"}}/>
@@ -821,6 +978,7 @@ function App() {
         {view==="studio" ? <Studio engines={engines} />
           : view==="library" ? <Library />
           : view==="dashboard" ? <Dashboard />
+          : view==="architecture" ? <Architecture engines={engines} />
           : <Monitoring />}
       </div>
     </>

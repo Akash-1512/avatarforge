@@ -66,3 +66,11 @@ def test_root_serves_console():
     assert resp.status_code in (200, 404)
     if resp.status_code == 200:
         assert "avatarforge" in resp.text.lower()
+
+
+def test_console_includes_architecture_view(client: TestClient) -> None:
+    """The operator console ships the Architecture view (system-design tab)."""
+    html = client.get("/").text
+    assert "function Architecture" in html
+    assert ">Architecture<" in html  # nav button
+    assert "Engine registry" in html and "LangGraph pipeline" in html
