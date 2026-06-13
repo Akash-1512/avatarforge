@@ -269,6 +269,29 @@
     border-radius:8px;padding:7px;font-size:12px;cursor:pointer}
   .clearall:hover{border-color:var(--fail);color:var(--fail)}
 
+  /* film: storyboard + composition */
+  .filmwrap{margin:8px 0 30px}
+  .filmbar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px}
+  .briefin{width:100%;background:var(--base);border:1px solid var(--border);color:var(--text);
+    border-radius:9px;padding:11px 13px;font-size:14px;resize:vertical;line-height:1.45}
+  .filmctrls{display:flex;gap:10px;margin-top:11px;flex-wrap:wrap}
+  .filmctrls select{background:var(--base);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:8px 10px;font-size:13px}
+  .filmctrls .btn.primary{margin-left:auto}
+  .board{margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    overflow:hidden}
+  .boardhead{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border)}
+  .boardhead .bt{font-family:var(--display);font-weight:600;font-size:16px}
+  .boardhead .bmeta{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .boardhead .btn{margin-left:auto}
+  .scenes{display:flex;flex-direction:column}
+  .scene{display:flex;gap:14px;padding:13px 16px;border-bottom:1px solid var(--border)}
+  .scene:last-child{border-bottom:0}
+  .scene .sn{font-family:var(--mono);font-size:13px;color:var(--ember);padding-top:2px;flex:none}
+  .scene .sshot{font-size:14px;color:var(--text);margin-bottom:3px}
+  .scene .smeta{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .filmout{margin-top:16px}
+
   /* characters gallery */
   .charbar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px;
     background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px}
@@ -290,6 +313,12 @@
   .charcard .del{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.45);border:0;
     color:var(--text);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:14px}
   .charcard .del:hover{background:var(--fail);color:#2a1606}
+  .charcard .restyle{margin-top:10px;display:flex;flex-direction:column;gap:5px}
+  .charcard .restyle select{background:var(--base);border:1px solid var(--border);
+    color:var(--text);border-radius:7px;padding:6px 8px;font-size:12px}
+  .charcard .restyle .hint{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .charcard .cardE{margin-top:8px;font-size:11px;color:var(--fail);
+    border:1px solid var(--fail);border-radius:6px;padding:5px 7px}
   .charempty{color:var(--faint);font-size:13px;padding:30px;text-align:center;
     background:var(--surface);border:1px dashed var(--border);border-radius:13px}
 
@@ -1040,9 +1069,20 @@ function Architecture({ engines }) {
 // ---- assistant: conversational planner with per-user memory ----
 // No auth yet, so identity is a stable client id. Real auth replaces this line.
 function clientId() {
-  // in-memory only (artifacts can't use localStorage); stable for the session
-  if (!window.__afUser) window.__afUser = "user-" + Math.random().toString(36).slice(2, 8);
-  return window.__afUser;
+  // persisted per browser so a user keeps their characters across reloads.
+  // (this console is served as a normal web page, where localStorage is available;
+  // falls back to an in-memory id if storage is somehow blocked.)
+  try {
+    let id = window.localStorage.getItem("cf_client_id");
+    if (!id) {
+      id = "user-" + Math.random().toString(36).slice(2, 10);
+      window.localStorage.setItem("cf_client_id", id);
+    }
+    return id;
+  } catch (e) {
+    if (!window.__afUser) window.__afUser = "user-" + Math.random().toString(36).slice(2, 8);
+    return window.__afUser;
+  }
 }
 
 function MemoryPanel({ userId, refreshKey, onChange }) {
@@ -1212,6 +1252,22 @@ function Characters() {
   const del = (id) =>
     api(`/characters/${userId}/${id}`, {method:"DELETE"}).then(load).catch(()=>{});
 
+  // live restyle: render a character's reference in a chosen style (real fal call)
+  const [restyling, setRestyling] = useState(null);   // character id in progress
+  const [previews, setPreviews] = useState({});        // id -> still url
+  const [cardErr, setCardErr] = useState({});          // id -> message
+  const restyle = async (id, chosenStyle) => {
+    setRestyling(id); setCardErr(p=>({...p,[id]:null}));
+    try {
+      const fd = new FormData(); fd.append("style", chosenStyle);
+      const r = await fetch(`${API}/characters/${userId}/${id}/restyle`, {method:"POST", body:fd});
+      const body = await r.json().catch(()=>({}));
+      if (!r.ok) throw new Error(body.detail || `${r.status}`);
+      setPreviews(p=>({...p,[id]: `${API}/media/${body.still_id}`}));
+    } catch(e) { setCardErr(p=>({...p,[id]: e.message})); }
+    finally { setRestyling(null); }
+  };
+
   const emoji = {realistic:"🎬", anime:"🌸", pixar:"✨", "3d":"🧊", claymation:"🟤", watercolor:"🎨"};
 
   return (
@@ -1267,7 +1323,12 @@ function Characters() {
             {chars.map(c=>(
               <div className="charcard" key={c.id}>
                 <button className="del" onClick={()=>del(c.id)} title="Delete">×</button>
-                <div className="thumb">{emoji[c.default_style] || "🎬"}</div>
+                <div className="thumb">
+                  {previews[c.id]
+                    ? <img src={previews[c.id]} alt={`${c.name} restyled`}
+                        style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                    : (emoji[c.default_style] || "🎬")}
+                </div>
                 <div className="meta">
                   <div className="nm">{c.name}</div>
                   <div className="tags">
@@ -1275,10 +1336,115 @@ function Characters() {
                     <span className="tag">{c.frame_count} frame{c.frame_count===1?"":"s"}</span>
                     <span className="tag policy">{c.is_real_person ? "real person" : "stylized"}</span>
                   </div>
+                  <div className="restyle">
+                    <select defaultValue={c.default_style}
+                      onChange={e=>restyle(c.id, e.target.value)}
+                      disabled={restyling===c.id}>
+                      {["realistic","anime","pixar","3d","claymation","watercolor"].map(s=>
+                        <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <span className="hint">
+                      {restyling===c.id ? "rendering…" : "pick a style to preview"}</span>
+                  </div>
+                  {cardErr[c.id] && <div className="cardE">{cardErr[c.id]}</div>}
                 </div>
               </div>
             ))}
           </div>}
+    </div>
+  );
+}
+
+// ---- film: brief -> storyboard -> multi-scene short ----
+function Film() {
+  const userId = clientId();
+  const [brief, setBrief] = useState("");
+  const [style, setStyle] = useState("anime");
+  const [board, setBoard] = useState(null);
+  const [chars, setChars] = useState([]);
+  const [charId, setCharId] = useState("");
+  const [phase, setPhase] = useState("idle");  // idle | planning | composing
+  const [clipId, setClipId] = useState(null);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    api(`/characters/${userId}`).then(d=>setChars(d.characters||[])).catch(()=>{});
+  }, [userId]);
+
+  const plan = async () => {
+    if (brief.trim().length < 3) return;
+    setPhase("planning"); setErr(null); setBoard(null); setClipId(null);
+    try {
+      const r = await api("/director/storyboard", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ brief: brief.trim(), style }),
+      });
+      setBoard(r.storyboard);
+    } catch(e) { setErr(e.message || "could not plan"); }
+    finally { setPhase("idle"); }
+  };
+
+  const compose = async () => {
+    if (!board) return;
+    setPhase("composing"); setErr(null); setClipId(null);
+    try {
+      const r = await api("/film/compose", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ storyboard: board, character_id: charId || null }),
+      });
+      setClipId(r.clip_id);
+    } catch(e) { setErr(e.message || "compose failed"); }
+    finally { setPhase("idle"); }
+  };
+
+  const total = board ? board.scenes.reduce((a,s)=>a+s.seconds,0) : 0;
+
+  return (
+    <div className="filmwrap">
+      <div className="filmbar">
+        <textarea className="briefin" rows={2} value={brief}
+          onChange={e=>setBrief(e.target.value)}
+          placeholder="Describe the short — e.g. 'a curious fox explores a neon city at night, finds a glowing door'"/>
+        <div className="filmctrls">
+          <select value={style} onChange={e=>setStyle(e.target.value)}>
+            {["realistic","anime","pixar","3d","claymation","watercolor"].map(s=>
+              <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select value={charId} onChange={e=>setCharId(e.target.value)}>
+            <option value="">No character (text-to-scene)</option>
+            {chars.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <button className="btn primary" onClick={plan} disabled={phase!=="idle"}>
+            {phase==="planning" ? "Directing…" : "Storyboard"}</button>
+        </div>
+      </div>
+      {err && <div className="trace-err" style={{marginBottom:14}}>{err}</div>}
+
+      {board &&
+        <div className="board">
+          <div className="boardhead">
+            <span className="bt">{board.title}</span>
+            <span className="bmeta">{board.style} · {board.scenes.length} scenes · {total}s</span>
+            <button className="btn" onClick={compose} disabled={phase!=="idle"}>
+              {phase==="composing" ? "Rendering…" : "Compose short"}</button>
+          </div>
+          <div className="scenes">
+            {board.scenes.map((s,i)=>(
+              <div className="scene" key={i}>
+                <div className="sn">{String(i+1).padStart(2,"0")}</div>
+                <div className="sbody">
+                  <div className="sshot">{s.shot}</div>
+                  <div className="smeta">{s.camera}{s.dialogue?` · “${s.dialogue}”`:""} · {s.seconds}s</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>}
+
+      {clipId &&
+        <div className="filmout">
+          <video controls src={`${API}/media/${clipId}`} style={{width:"100%",borderRadius:12}}/>
+        </div>}
     </div>
   );
 }
@@ -1329,7 +1495,7 @@ function App() {
               <span className="pill">● quality loop</span>
             </div>
           </div>}
-        {view==="studio" ? <Studio engines={engines} />
+        {view==="studio" ? <><Film /><Studio engines={engines} /></>
           : view==="assistant" ? <Assistant />
           : view==="characters" ? <Characters />
           : view==="library" ? <Library />

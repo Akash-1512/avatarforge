@@ -126,6 +126,21 @@ the orchestration *visible*.
   full generated script shown on demand, plus its language, engine, voice, and
   length. The full narration is persisted on the job row (migration 0004), so a
   completed run is a durable, replayable record — not a one-shot download.
+- **Self-correcting quality loop (v2.3)** — the centrepiece. A scene renders, a
+  **vision judge** (Azure OpenAI) extracts a frame and scores it against the intended
+  description, and if it falls short the judge's suggestion is folded into the prompt
+  and the scene **re-renders** — until it clears the quality threshold or hits hard
+  **iteration + cost caps** (a runaway loop is impossible by construction). Every
+  attempt is recorded (score, issues, est. spend). Endpoint: `POST /scene/refine`.
+  Shipped with **Sora 2 rate-limit hardening**: the scene client honours HTTP 429
+  Retry-After with bounded backoff, so multi-scene films and the loop's re-renders
+  survive the preview quota (1 RPM) instead of failing.
+- **Director + multi-scene films (v2.2)** — the Create view now turns a one-line
+  brief into a structured **storyboard** (director agent on Azure OpenAI, scene
+  count/runtime clamped to cinematic-short scale), then **fans out** each scene over
+  the content-policy scene router and **stitches** them with FFmpeg into one short.
+  New endpoints: `POST /director/storyboard` (inspect before rendering),
+  `POST /film/compose` (render + assemble). A character can drive the cast.
 - **Styles, voice & lip-sync (v2.1)** — the same character, any look, speaking.
   A **style engine** restyles a character's reference into anime, Pixar-3D, claymation,
   watercolor or 3D via fal FLUX-LoRA (realistic is a pass-through); **ElevenLabs** joins

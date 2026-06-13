@@ -73,3 +73,44 @@ async def test_generate_raises_on_failed_status(monkeypatch):
     )
     with pytest.raises(SceneEngineError):
         await c.generate("x", seconds=3)
+
+
+def test_snap_seconds_to_allowed_set():
+    from backend.services.scene.sora2_client import SORA2_ALLOWED_SECONDS, snap_seconds
+
+    assert snap_seconds(5) == 4  # the value that triggered the live 400
+    assert snap_seconds(1) == 4
+    assert snap_seconds(7) == 8
+    assert snap_seconds(10) == 8  # ties resolve to the smaller/closer
+    assert snap_seconds(12) == 12
+    assert snap_seconds(20) == 12
+    for v in (4, 8, 12):
+        assert v in SORA2_ALLOWED_SECONDS
+
+
+@pytest.mark.asyncio
+async def test_generate_snaps_invalid_seconds_before_request(monkeypatch):
+    c = _client(monkeypatch)
+    captured = {}
+
+    def handler(request):
+        import json as _j
+
+        if request.method == "POST":
+            captured["seconds"] = _j.loads(request.content)["seconds"]
+            return httpx.Response(200, json={"id": "vid_s"})
+        if "/content" in str(request.url):
+            return httpx.Response(200, content=b"MP4")
+        return httpx.Response(200, json={"status": "completed"})
+
+    transport = httpx.MockTransport(handler)
+    orig = httpx.AsyncClient
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda *a, **k: orig(
+            *a, transport=transport, **{x: y for x, y in k.items() if x != "transport"}
+        ),
+    )
+    await c.generate("a forest", seconds=5)
+    assert captured["seconds"] == "4"  # snapped, sent as string
