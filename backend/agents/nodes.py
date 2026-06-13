@@ -87,6 +87,7 @@ class PipelineNodes:
         await self.repo.complete(
             state.job_id,
             script_title=state.script_title,
+            script=state.narration,
             audio_file_id=state.audio_file_id,
             video_file_id=state.video_file_id,
             video_url=state.video_url,

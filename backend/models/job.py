@@ -42,6 +42,7 @@ class VideoJob(Base):
 
     # Outputs
     script_title: Mapped[str] = mapped_column(Text, nullable=True)
+    script: Mapped[str] = mapped_column(Text, nullable=True)
     audio_file_id: Mapped[str] = mapped_column(String(64), nullable=True)
     video_file_id: Mapped[str] = mapped_column(String(64), nullable=True)
     video_url: Mapped[str] = mapped_column(String(200), nullable=True)
