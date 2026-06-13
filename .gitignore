@@ -35,3 +35,7 @@ dist/
 *.wav
 !backend/tests/fixtures/*.wav
 k8s/02-secret.yaml
+
+# MLflow local scratch
+mlruns/
+mlartifacts/

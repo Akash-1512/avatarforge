@@ -111,3 +111,50 @@ class OpenAITTSProvider(BaseTTSProvider):
             )
         except Exception as exc:  # noqa: BLE001
             raise TTSProviderError(self.name, exc) from exc
+
+
+class ElevenLabsProvider(BaseTTSProvider):
+    """Cloned / premium voices for character dialogue.
+
+    Sits at the end of the TTS fallback chain: when a character has a cloned
+    ElevenLabs voice we prefer it, but the chain still degrades to Azure/OpenAI
+    if ElevenLabs is unavailable. voice_preset doubles as the ElevenLabs voice id.
+    """
+
+    name = "elevenlabs"
+
+    def __init__(self, settings):
+        self._settings = settings
+
+    @property
+    def available(self) -> bool:
+        return bool(self._settings.elevenlabs_api_key)
+
+    async def synthesize(
+        self, text, voice_preset, speaking_rate: float = 1.0, language: str = "en"
+    ):
+        import httpx
+
+        voice_id = voice_preset or self._settings.elevenlabs_voice_id
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        try:
+            async with httpx.AsyncClient(timeout=60) as http:
+                resp = await http.post(
+                    url,
+                    headers={
+                        "xi-api-key": self._settings.elevenlabs_api_key,
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "text": text,
+                        "model_id": "eleven_multilingual_v2",
+                        "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+                    },
+                )
+            if resp.status_code >= 400:
+                raise _RetryableHTTPError(f"{resp.status_code}: {resp.text[:160]}")
+            return SynthesisResult(
+                audio_bytes=resp.content, model="eleven_multilingual_v2", characters=len(text)
+            )
+        except Exception as exc:  # noqa: BLE001 — normalize to provider error
+            raise TTSProviderError(self.name, exc) from exc
