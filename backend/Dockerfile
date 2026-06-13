@@ -15,7 +15,7 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY . /app/backend
 
-RUN mkdir -p /data/media && chown -R forge:forge /data /app
+RUN mkdir -p /data/media /data/eval && chown -R forge:forge /data /app
 USER forge
 
 ENV PYTHONPATH=/app PYTHONUNBUFFERED=1

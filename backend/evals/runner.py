@@ -12,6 +12,8 @@ falls below threshold. Run it before merging any prompt or model change:
 
 import argparse
 import asyncio
+import json
+import os
 import statistics
 import sys
 import time
@@ -88,6 +90,39 @@ def check_thresholds(aggregates: Dict[str, float]) -> List[str]:
     return failures
 
 
+def write_local_report(
+    results: List[Dict], aggregates: Dict[str, float], failures: List[str]
+) -> None:
+    """Persist the latest eval run to a local JSON file the API can serve.
+
+    Decoupled from MLflow on purpose: the operator console reads this file via
+    GET /metrics/eval, so eval results are visible even when MLflow isn't wired.
+    """
+    from backend.config import get_settings
+
+    path = get_settings().eval_report_path
+    report = {
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "cases": len(results),
+        "aggregates": aggregates,
+        "thresholds": THRESHOLDS,
+        "failures": failures,
+        "passed": not failures,
+        "total_cost_usd": round(sum(r["cost_usd"] for r in results), 6),
+        "results": [
+            {k: r[k] for k in ("case_id", "topic", "provider", "latency_ms", "scores")}
+            for r in results
+        ],
+    }
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as fh:
+            json.dump(report, fh, indent=2)
+        logger.info("eval_report_written", path=path)
+    except OSError as exc:
+        logger.warning("eval_report_write_failed", error=str(exc)[:200])
+
+
 def log_to_mlflow(results: List[Dict], aggregates: Dict[str, float], failures: List[str]) -> None:
     from backend.config import get_settings
     from backend.observability import tracking
@@ -134,6 +169,7 @@ async def run(limit: Optional[int], use_judge: bool) -> int:
     aggregates = aggregate(results)
     failures = check_thresholds(aggregates)
     log_to_mlflow(results, aggregates, failures)
+    write_local_report(results, aggregates, failures)
 
     print("\n=== Aggregates ===")
     for k, v in sorted(aggregates.items()):

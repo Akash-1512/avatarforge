@@ -513,6 +513,130 @@ function Dashboard() {
   );
 }
 
+// ---- monitoring: deep provider/eval/health view ----
+function Bar({ value, max, color }) {
+  const w = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
+  return <div style={{height:7,background:"var(--base)",borderRadius:4,overflow:"hidden"}}>
+    <div style={{height:"100%",width:w+"%",background:color||"var(--ember)",borderRadius:4}}/></div>;
+}
+
+function ProviderTable({ title, providers }) {
+  const rows = Object.entries(providers || {});
+  return (
+    <>
+      <div className="sec-h"><h3>{title}</h3></div>
+      <table className="tbl">
+        <thead><tr><th>provider</th><th>calls</th><th>success</th><th>avg latency</th><th>cost</th></tr></thead>
+        <tbody>
+          {rows.length===0 && <tr><td colSpan="5" className="muted-empty">no calls recorded yet</td></tr>}
+          {rows.map(([name, p])=>(
+            <tr key={name}>
+              <td>{name}</td>
+              <td>{p.calls}</td>
+              <td><span className={"pill "+(p.success_rate>=0.99?"completed":p.success_rate>=0.5?"running":"failed")}>{Math.round((p.success_rate||0)*100)}%</span></td>
+              <td>{p.avg_latency_ms}ms</td>
+              <td>${Number(p.cost_usd||0).toFixed(4)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+function Monitoring() {
+  const [deep, setDeep] = useState(null);
+  const [metrics, setMetrics] = useState(null);
+  const [evalr, setEvalr] = useState(null);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    let live = true;
+    Promise.all([
+      api("/health/deep").catch(()=>({status:"down",dependencies:{}})),
+      api("/metrics/summary").catch(()=>null),
+      api("/metrics/eval").catch(()=>({available:false})),
+    ]).then(([d,m,e])=>{ if(live){ setDeep(d); setMetrics(m); setEvalr(e); } });
+    const t = setInterval(()=>setTick(x=>x+1), 5000);
+    return ()=>{ live=false; clearInterval(t); };
+  }, [tick]);
+
+  const deps = deep?.dependencies || {};
+  const jbs = metrics?.jobs_by_status || {};
+  const jbsMax = Math.max(1, ...Object.values(jbs));
+  const jobColor = (s) => s==="completed"?"var(--done)":s==="failed"?"var(--fail)":s==="running"?"var(--ember)":"var(--idle)";
+
+  return (
+    <>
+      <h1 className="eyebrow">monitoring</h1>
+      <p className="lede">Dependencies, providers, and quality gates.<span className="mut"> The full observability surface behind the pipeline.</span></p>
+
+      <div className="sec-h"><h3>Dependencies</h3>
+        <span className="rf">{deep?.status==="ok"?"all healthy":deep?.status||"checking"}</span></div>
+      <div className="tiles" style={{gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))"}}>
+        {Object.entries(deps).map(([name,st])=>(
+          <div className="tile" key={name}>
+            <div className="lab">{name}</div>
+            <div style={{marginTop:9,display:"flex",alignItems:"center",gap:8}}>
+              <span className="dot" style={{background: st==="ok"?"var(--done)":"var(--fail)"}}/>
+              <span style={{fontFamily:"var(--mono)",fontSize:14,color: st==="ok"?"var(--done)":"var(--fail)"}}>{st}</span>
+            </div>
+          </div>
+        ))}
+        {Object.keys(deps).length===0 && <div className="tile"><div className="lab">probe</div><div className="sub" style={{marginTop:9}}>no readiness data</div></div>}
+      </div>
+
+      <ProviderTable title="LLM providers" providers={metrics?.llm_providers} />
+      <ProviderTable title="Speech providers" providers={metrics?.tts_providers} />
+
+      <div className="sec-h"><h3>Jobs by status</h3></div>
+      <div className="panel">
+        {Object.keys(jbs).length===0 ? <div className="muted-empty">no jobs yet</div> :
+          Object.entries(jbs).map(([s,n])=>(
+            <div key={s} style={{display:"grid",gridTemplateColumns:"110px 1fr 40px",alignItems:"center",gap:12,margin:"9px 0"}}>
+              <span style={{fontFamily:"var(--mono)",fontSize:12.5,color:"var(--muted)"}}>{s}</span>
+              <Bar value={n} max={jbsMax} color={jobColor(s)} />
+              <span style={{fontFamily:"var(--mono)",fontSize:13,textAlign:"right"}}>{n}</span>
+            </div>
+          ))}
+      </div>
+
+      <div className="sec-h"><h3>Script eval — regression gate</h3>
+        <span className="rf">{evalr?.available ? evalr.generated_at : "make eval"}</span></div>
+      {!evalr?.available ? (
+        <div className="panel"><div className="muted-empty">
+          No eval run yet. Run <span style={{fontFamily:"var(--mono)",color:"var(--ember)"}}>make eval</span> to score script generation against the dataset.
+        </div></div>
+      ) : (
+        <div className="panel">
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+            <span className={"pill "+(evalr.passed?"completed":"failed")} style={{fontSize:13,padding:"5px 12px"}}>
+              {evalr.passed ? "GATE PASSED" : "GATE FAILED"}</span>
+            <span style={{fontFamily:"var(--mono)",fontSize:12,color:"var(--muted)"}}>
+              {evalr.cases} cases · ${Number(evalr.total_cost_usd||0).toFixed(4)}</span>
+          </div>
+          {Object.entries(evalr.aggregates||{}).map(([metric,score])=>{
+            const thr = (evalr.thresholds||{})[metric];
+            const pass = thr==null || score>=thr;
+            const isJudge = metric.startsWith("judge");
+            const max = isJudge ? 5 : 1;
+            return (
+              <div key={metric} style={{display:"grid",gridTemplateColumns:"210px 1fr 92px",alignItems:"center",gap:12,margin:"10px 0"}}>
+                <span style={{fontFamily:"var(--mono)",fontSize:12.5,color:"var(--muted)"}}>{metric}</span>
+                <Bar value={score} max={max} color={pass?"var(--done)":"var(--fail)"} />
+                <span style={{fontFamily:"var(--mono)",fontSize:12.5,textAlign:"right",color:pass?"var(--done)":"var(--fail)"}}>
+                  {score}{thr!=null && <span style={{color:"var(--faint)"}}> /{thr}</span>}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <div style={{height:50}} />
+    </>
+  );
+}
+
 function App() {
   const [view, setView] = useState("studio");
   const [engines, setEngines] = useState({ engines:["sadtalker"], default:"sadtalker" });
@@ -532,6 +656,7 @@ function App() {
         <div className="nav">
           <button className={view==="studio"?"on":""} onClick={()=>setView("studio")}>Studio</button>
           <button className={view==="dashboard"?"on":""} onClick={()=>setView("dashboard")}>Dashboard</button>
+          <button className={view==="monitoring"?"on":""} onClick={()=>setView("monitoring")}>Monitoring</button>
         </div>
         <div className="ver">
           <span className="dot" style={{background: ok?"var(--done)":"var(--fail)"}}/>
@@ -539,7 +664,9 @@ function App() {
         </div>
       </div></div>
       <div className="wrap">
-        {view==="studio" ? <Studio engines={engines} /> : <Dashboard />}
+        {view==="studio" ? <Studio engines={engines} />
+          : view==="dashboard" ? <Dashboard />
+          : <Monitoring />}
       </div>
     </>
   );

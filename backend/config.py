@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     # ── App ──────────────────────────────────────────────
-    app_version: str = "1.4.0"
+    app_version: str = "1.5.0"
     environment: Literal["dev", "staging", "prod"] = "dev"
     log_level: str = "INFO"
     cors_origins: List[str] = ["http://localhost:3000"]
@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     # ── Storage (Phase 3+) ───────────────────────────────
     storage_backend: Literal["local", "azure_blob"] = "local"
     local_storage_path: str = "/data/media"
+    eval_report_path: str = "/data/eval/latest.json"
     azure_blob_connection_string: str = ""
     azure_blob_container: str = "avatarforge-media"
 

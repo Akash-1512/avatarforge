@@ -89,3 +89,47 @@ async def test_summary_computes_rates_and_fallback(session_factory):
     assert out["llm_fallback_rate"] == 0.5
     assert out["avatar"]["calls"] == 1
     assert out["total_cost_usd"] == 0.003
+
+
+def test_eval_endpoint_unavailable_without_report(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from backend.config import get_settings
+    from backend.main import create_app
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("EVAL_REPORT_PATH", str(tmp_path / "nope.json"))
+    client = TestClient(create_app())
+    body = client.get("/api/v1/metrics/eval").json()
+    assert body["available"] is False
+    get_settings.cache_clear()
+
+
+def test_eval_endpoint_returns_report(tmp_path, monkeypatch):
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from backend.config import get_settings
+    from backend.main import create_app
+
+    report = {
+        "generated_at": "2026-06-13T00:00:00Z",
+        "cases": 5,
+        "aggregates": {"speakability": 0.98, "judge_overall": 4.5},
+        "thresholds": {"speakability": 0.95, "judge_overall": 3.2},
+        "failures": [],
+        "passed": True,
+        "total_cost_usd": 0.0012,
+        "results": [],
+    }
+    p = tmp_path / "latest.json"
+    p.write_text(json.dumps(report))
+    get_settings.cache_clear()
+    monkeypatch.setenv("EVAL_REPORT_PATH", str(p))
+    client = TestClient(create_app())
+    body = client.get("/api/v1/metrics/eval").json()
+    assert body["available"] is True
+    assert body["passed"] is True
+    assert body["aggregates"]["speakability"] == 0.98
+    get_settings.cache_clear()
