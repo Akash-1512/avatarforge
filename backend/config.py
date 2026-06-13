@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     # ── App ──────────────────────────────────────────────
-    app_version: str = "1.10.0"
+    app_version: str = "2.0.0"
     environment: Literal["dev", "staging", "prod"] = "dev"
     log_level: str = "INFO"
     cors_origins: List[str] = ["http://localhost:3000"]
@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     # ── LLM providers (Phase 2) ──────────────────────────
     azure_openai_endpoint: str = ""
     azure_openai_api_key: str = ""
+    azure_sora_deployment: str = "sora-2"  # Sora 2 scene-engine deployment name
     azure_openai_deployment: str = "gpt-4o-mini"
     azure_openai_api_version: str = "2024-10-21"
     openai_api_key: str = ""

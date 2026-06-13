@@ -56,6 +56,7 @@ async def init_db() -> None:
     """Create tables in dev. Safe to call repeatedly."""
     from backend.models import (  # noqa: F401 — register models
         avatar_usage,
+        character,
         chat,
         job,
         memory,

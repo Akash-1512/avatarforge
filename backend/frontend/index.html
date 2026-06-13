@@ -250,6 +250,30 @@
     border-radius:8px;padding:7px;font-size:12px;cursor:pointer}
   .clearall:hover{border-color:var(--fail);color:var(--fail)}
 
+  /* characters gallery */
+  .charbar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px;
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px}
+  .charbar .f{display:flex;flex-direction:column;gap:5px}
+  .charbar label{font-size:11px;color:var(--muted)}
+  .charbar input,.charbar select{background:var(--base);border:1px solid var(--border);
+    color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px}
+  .chargrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+  .charcard{background:var(--surface);border:1px solid var(--border);border-radius:13px;
+    overflow:hidden;position:relative}
+  .charcard .thumb{height:150px;background:var(--surface-2);display:flex;align-items:center;
+    justify-content:center;color:var(--faint);font-size:34px}
+  .charcard .meta{padding:11px 13px}
+  .charcard .nm{font-family:var(--display);font-size:14px;color:var(--text);margin-bottom:4px}
+  .charcard .tags{display:flex;gap:6px;flex-wrap:wrap}
+  .charcard .tag{font-family:var(--mono);font-size:10px;color:var(--ember);
+    border:1px solid var(--ember-dim);border-radius:5px;padding:1px 6px}
+  .charcard .tag.policy{color:var(--muted);border-color:var(--border)}
+  .charcard .del{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.45);border:0;
+    color:var(--text);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:14px}
+  .charcard .del:hover{background:var(--fail);color:#2a1606}
+  .charempty{color:var(--faint);font-size:13px;padding:30px;text-align:center;
+    background:var(--surface);border:1px dashed var(--border);border-radius:13px}
+
   /* library gallery */
   .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;padding-bottom:10px}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;
@@ -1124,6 +1148,117 @@ function Assistant() {
   );
 }
 
+// ---- characters gallery: create + manage reusable digital characters ----
+function Characters() {
+  const userId = clientId();
+  const [chars, setChars] = useState([]);
+  const [name, setName] = useState("");
+  const [style, setStyle] = useState("realistic");
+  const [kind, setKind] = useState("photo");
+  const [realPerson, setRealPerson] = useState(true);
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const fileRef = useRef(null);
+
+  const load = useCallback(() => {
+    api(`/characters/${userId}`).then(d => setChars(d.characters || [])).catch(()=>{});
+  }, [userId]);
+  useEffect(load, [load]);
+
+  const create = async () => {
+    if (!file || !name.trim() || busy) return;
+    setBusy(true); setErr(null);
+    const fd = new FormData();
+    fd.append("user_id", userId);
+    fd.append("name", name.trim());
+    fd.append("source_kind", kind);
+    fd.append("default_style", style);
+    fd.append("is_real_person", realPerson ? "true" : "false");
+    fd.append("source", file);
+    try {
+      const r = await fetch(API + "/characters", { method:"POST", body: fd });
+      const body = await r.json().catch(()=>({}));
+      if (!r.ok) throw new Error(body.detail || `${r.status}`);
+      setName(""); setFile(null); if (fileRef.current) fileRef.current.value = "";
+      load();
+    } catch(e) { setErr(e.message); } finally { setBusy(false); }
+  };
+
+  const del = (id) =>
+    api(`/characters/${userId}/${id}`, {method:"DELETE"}).then(load).catch(()=>{});
+
+  const emoji = {realistic:"🎬", anime:"🌸", pixar:"✨", "3d":"🧊", claymation:"🟤", watercolor:"🎨"};
+
+  return (
+    <div>
+      <h1 className="eyebrow">Characters</h1>
+      <p className="lede">Build a reusable digital character.
+        <span className="mut"> A photo, a clip, or a live capture becomes reference frames you reuse across every scene.</span></p>
+
+      <div className="charbar">
+        <div className="f" style={{flex:"1 1 160px"}}>
+          <label>Name</label>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Aria"/>
+        </div>
+        <div className="f">
+          <label>Source</label>
+          <select value={kind} onChange={e=>setKind(e.target.value)}>
+            <option value="photo">Photo</option>
+            <option value="video">Video</option>
+            <option value="live">Live capture</option>
+          </select>
+        </div>
+        <div className="f">
+          <label>Default style</label>
+          <select value={style} onChange={e=>setStyle(e.target.value)}>
+            {["realistic","anime","pixar","3d","claymation","watercolor"].map(s=>
+              <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="f">
+          <label>Real person</label>
+          <select value={realPerson?"yes":"no"} onChange={e=>setRealPerson(e.target.value==="yes")}>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+        <div className="f" style={{flex:"1 1 160px"}}>
+          <label>File</label>
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,video/mp4,video/quicktime"
+            onChange={e=>setFile(e.target.files[0])}/>
+        </div>
+        <button className="btn primary" onClick={create} disabled={busy}>
+          {busy ? "Ingesting…" : "Create"}</button>
+      </div>
+      {err && <div className="trace-err" style={{marginBottom:16}}>{err}</div>}
+      {realPerson &&
+        <p className="chat-applied" style={{padding:"0 2px 14px"}}>
+          Real-person characters route to a reference-capable engine (Kling); Azure Sora 2 handles stylized, non-real-face scenes.
+        </p>}
+
+      {chars.length===0
+        ? <div className="charempty">No characters yet — create one above. It becomes reusable across every scene and film.</div>
+        : <div className="chargrid">
+            {chars.map(c=>(
+              <div className="charcard" key={c.id}>
+                <button className="del" onClick={()=>del(c.id)} title="Delete">×</button>
+                <div className="thumb">{emoji[c.default_style] || "🎬"}</div>
+                <div className="meta">
+                  <div className="nm">{c.name}</div>
+                  <div className="tags">
+                    <span className="tag">{c.default_style}</span>
+                    <span className="tag">{c.frame_count} frame{c.frame_count===1?"":"s"}</span>
+                    <span className="tag policy">{c.is_real_person ? "real person" : "stylized"}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>}
+    </div>
+  );
+}
+
 function App() {
   const [view, setView] = useState("studio");
   const [engines, setEngines] = useState({ engines:["sadtalker"], default:"sadtalker" });
@@ -1143,6 +1278,7 @@ function App() {
         <div className="nav">
           <button className={view==="studio"?"on":""} onClick={()=>setView("studio")}>Studio</button>
           <button className={view==="assistant"?"on":""} onClick={()=>setView("assistant")}>Assistant</button>
+          <button className={view==="characters"?"on":""} onClick={()=>setView("characters")}>Characters</button>
           <button className={view==="library"?"on":""} onClick={()=>setView("library")}>Library</button>
           <button className={view==="dashboard"?"on":""} onClick={()=>setView("dashboard")}>Dashboard</button>
           <button className={view==="monitoring"?"on":""} onClick={()=>setView("monitoring")}>Monitoring</button>
@@ -1156,6 +1292,7 @@ function App() {
       <div className="wrap">
         {view==="studio" ? <Studio engines={engines} />
           : view==="assistant" ? <Assistant />
+          : view==="characters" ? <Characters />
           : view==="library" ? <Library />
           : view==="dashboard" ? <Dashboard />
           : view==="architecture" ? <Architecture engines={engines} />

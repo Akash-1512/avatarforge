@@ -81,3 +81,10 @@ def test_console_includes_assistant_view(client: TestClient) -> None:
     html = client.get("/").text
     assert "function Assistant" in html and ">Assistant<" in html
     assert "Memory & preferences" in html and "/studio/chat" in html
+
+
+def test_console_includes_characters_view(client: TestClient) -> None:
+    """The console ships the Characters gallery (digital character assets)."""
+    html = client.get("/").text
+    assert "function Characters" in html and ">Characters<" in html
+    assert "/characters/" in html
