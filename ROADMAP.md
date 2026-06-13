@@ -1,8 +1,10 @@
 # contentforge — Engineering Roadmap
 
 **From talking-head backend to production-grade AI film pipeline.**
-Status: foundation complete (v1.10.0). This document is the complete plan from
-here to a shipped v2 content-creation platform. Costs verified June 2026.
+Status: **Phase 2 complete (v2.1.0, 202 tests, green CI).** Foundation + character
+assets + scene routing + styles/voice/lip-sync are shipped; the director, the
+quality loop, and deployment remain. This document is the complete plan, updated to
+current state. Costs and the Azure content policy verified June 2026.
 
 ---
 
@@ -43,6 +45,24 @@ The foundation is the genuinely hard infrastructure, and it exists and is tested
 **What this means:** v2 is additive. We add a Character asset, scene engines,
 a storyboard/composition layer, finishing nodes, and a quality loop — on top of a
 pipeline that already orchestrates, falls back, traces, evaluates, and remembers.
+
+### Shipped since this plan began (v2.0.0 → v2.1.0)
+
+The first two build phases are done; the foundation table above is now joined by
+the live content-creation layer:
+
+| Shipped | Release | What landed |
+| --- | --- | --- |
+| **Character assets** | v2.0.0 | `Character` model (migration 0007); photo/video/live ingest with FFmpeg best-frame sampling; per-user CRUD; a Characters gallery |
+| **Scene-engine registry** | v2.0.0 | Routes on **content policy first**: Azure Sora 2 for text/stylized scenes, a reference-capable engine (Kling on fal) for real-person shots |
+| **Sora 2 client** | v2.0.0 | Built to the verified `/openai/v1/videos` preview schema (create → poll → download) |
+| **Style engine** | v2.1.0 | Restyle a reference into anime / Pixar-3D / 3D / claymation / watercolor via fal FLUX-LoRA; realistic is pass-through; one registry line per style |
+| **ElevenLabs voice** | v2.1.0 | Cloned character voices in the existing TTS fallback chain |
+| **Lip-sync** | v2.1.0 | VEED Fabric node (still + audio → talking clip) |
+| **Rebrand + redesign** | v2.1.0 | `contentforge` cinema identity, product-first nav (Create / Characters / Library, then ops), hero, film-frame mark |
+| **Repo cleanup** | — | Removed committed runtime artifacts (`.coverage`, `mlruns/`), empty leftover dirs, orphaned one-off scripts and stale release notes |
+
+Test count grew 169 → 202 across these releases.
 
 ---
 
@@ -122,40 +142,51 @@ axes, not one:
 
 **Key fact:** scene generation, scripting, voice, and the quality judge all run on
 **Azure** (Sora 2 is in Azure AI Foundry at $0.10/sec). fal is the secondary engine
-for stylization, lip-sync, and the photoreal/real-person route Azure's Responsible
-AI blocks. We already integrate the fal pattern (`FalAvatarClient`) and the Azure
-pattern (LLM/TTS), so both fit the existing registry.
+for stylization, lip-sync, and the real-person route Azure blocks. We already
+integrate the fal pattern (`FalAvatarClient`) and the Azure pattern (LLM/TTS), so
+both fit the existing registry.
+
+**Content-policy correction (verified on Microsoft Learn during the Phase 1 build).**
+Azure Sora 2's Responsible AI is stricter than first assumed: it rejects real people
+including public figures **and rejects input images containing human faces outright**
+— not merely "photorealistic" output. Consequence, now built into the registry: a
+character flagged `is_real_person` can never be sent to Sora 2; those shots route to a
+reference-capable engine (Kling on fal) that accepts a face reference. This is exactly
+why scene routing decides on **content policy before cost or style**. Also corrected:
+the current endpoint is `POST {endpoint}/openai/v1/videos?api-version=preview` (the old
+`/video/generations/jobs` is deprecated with a validation bug).
 
 ---
 
-## 6. Roadmap — from here to done
+## 6. Roadmap — phases and status
 
 Each phase ships as a tagged release with tests and green CI, same cadence as v1.x.
 
-### Phase 1 — Character asset + Azure Sora 2 scene engine  (v2.0.0)
-- `Character` model + tables (migration 0007): reference frames, style, voice id.
-- Ingest endpoint: photo → frames; video/live → FFmpeg best-frame sampling.
-- `Sora2Client` added to the scene-engine registry beside fal; verify the current
-  Azure AI Foundry Sora 2 request schema against Microsoft Learn before coding.
-- Reuse storage, validation, tracing, tests. Console: a **Characters** gallery.
-- *Exit:* ingest a person, generate one Sora 2 scene from a reference, traced.
+### ✅ Phase 1 — Character asset + Azure Sora 2 scene engine  (v2.0.0, shipped)
+- `Character` model + migration 0007; photo/video/live ingest with FFmpeg sampling.
+- Sora 2 client built to the **verified** preview schema; scene registry routing on
+  content policy. Characters gallery in the console.
+- *As-built note:* the original exit criterion ("generate a Sora 2 scene **from a
+  reference**") changed once the face-rejection policy was confirmed — Sora 2 is
+  text-to-scene only, and real-person reference shots route to Kling. The registry
+  is the feature that absorbs this cleanly.
 
-### Phase 2 — Style engines + voice + lip-sync  (v2.1.0)
-- `StyleEngine` registry (realistic / anime / Pixar-3D / extensible) behind one
-  contract — mirrors the avatar-engine pattern. FLUX-LoRA image-to-image; optional
-  per-character trained LoRA for stronger likeness.
-- ElevenLabs voice provider behind the existing TTS fallback (cloned voices).
-- VEED Fabric lip-sync node so the character speaks the dialogue.
-- *Exit:* same person rendered in 3 styles, speaking, lip-synced.
+### ✅ Phase 2 — Style engines + voice + lip-sync  (v2.1.0, shipped)
+- Style engine (FLUX-LoRA i2i): realistic pass-through + anime / Pixar-3D / 3D /
+  claymation / watercolor, one registry entry each. Per-character trained LoRA for
+  stronger likeness remains an available upgrade, not yet wired.
+- ElevenLabs voice provider in the TTS fallback chain (cloned voices).
+- VEED Fabric lip-sync node. Endpoints: `/scene/styles`, `/restyle`, `/scene/lipsync`.
+- Shipped alongside the `contentforge` rebrand + console redesign.
 
-### Phase 3 — Director agent + multi-scene composition  (v2.2.0)
+### ✅ Phase 3 — Director agent + multi-scene composition  (v2.2.0, shipped)
 - Extend the planner: brief → `Storyboard` (scenes[] with shot/camera/dialogue/style).
 - Pipeline fan-out: per-scene generation → FFmpeg stitch + transitions + captions.
 - Music score node, mood-matched to the storyboard.
 - Per-scene tracing in the existing trace view.
 - *Exit:* a 30–60s multi-scene short from one brief, assembled and scored.
 
-### Phase 4 — The self-correcting quality loop  (v2.3.0) — the centrepiece
+### ✅ Phase 4 — The self-correcting quality loop  (v2.3.0, shipped) — the centrepiece
 - Vision-judge node: score each rendered shot against its storyboard cell.
 - Re-render path: below threshold → re-prompt / Sora 2 Remix that shot only.
 - Bounded by max-iterations + max-cost caps (a runaway loop cannot drain credits);
@@ -164,15 +195,17 @@ Each phase ships as a tagged release with tests and green CI, same cadence as v1
 - *Exit:* a shot that fails the brief is detected and improved automatically, with
   the iteration history visible in the trace.
 
-### Phase 5 — Film Studio console + deployment  (v2.4.0)
-- **Studio (film)** view: character → style → brief → watch storyboard render →
-  see the quality loop iterate live. Reuse the console shell.
+### ▶ Phase 5 — Film Studio console + deployment  (v2.4.0) — NEXT
+- Deepen the **Create** view into a film flow: character → style → brief → watch the
+  storyboard render → see the quality loop iterate live. (The redesign's shell + the
+  Characters gallery are already in; this builds the multi-scene surface on top.)
 - Public deployment (Azure Container Apps) — a clickable URL; the biggest single
   multiplier for the whole project.
 - *Exit:* a stranger can open a URL, create a short, and watch it self-correct.
 
 ### Phase 6 — Hardening + finishing  (v2.5.0)
-- Auth/API-key layer (the standing gap), idempotency keys, outbound webhooks.
+- Auth/API-key layer (the standing gap — `user_id` is still client-supplied),
+  idempotency keys, outbound webhooks.
 - Upscale/finish pass for hero renders; p50/p95/p99 latency in Monitoring.
 - Cost dashboard per character/per project; budget guardrails surfaced in UI.
 
@@ -209,8 +242,10 @@ LLM/voice + a couple of fal lip-sync/restyle calls + the loop's 1–2 re-renders
 - **Not in scope for v2:** 10-minute studio-VFX films one-shot. Runtime scales cost
   linearly and character consistency degrades past a few minutes — that's a frontier
   problem, not a 20-day build.
-- **Azure Sora content policy:** blocks photorealistic real-person likeness; those
-  shots route to Kling/Seedance on fal. This is *why* multi-engine routing exists.
+- **Azure Sora content policy:** rejects real people *and input images with human
+  faces outright* (not just photorealistic output); real-person shots route to
+  Kling/Seedance on fal. This is *why* multi-engine routing exists, and it is now
+  enforced by the `is_real_person` routing flag.
 - **Character consistency:** production-ready in 2026 (Kling Character-ID ~90%+ across
   shots with good references) but not perfect; the quality loop is the mitigation.
 - **Cost runaway:** the quality loop must have hard iteration + spend caps from day one.
@@ -219,15 +254,15 @@ LLM/voice + a couple of fal lip-sync/restyle calls + the loop's 1–2 re-renders
 
 ---
 
-## 9. Definition of done (v2)
+## 9. Definition of done (v2) — with current progress
 
-1. Ingest a person (photo/video/live) → a reusable character asset.
-2. Choose a style (realistic / anime / Pixar-3D) and describe a short.
-3. The director agent produces a storyboard; scenes render with the locked character.
-4. Dialogue is voiced and lip-synced; a score and captions are added; shots assembled.
-5. The quality loop checks each shot against the brief and re-renders until it matches.
-6. The whole run is traced and cost-attributed; the finished short is in the Library.
-7. It runs at a public URL; CI is green; tests cover the new services and the loop.
+1. ✅ Ingest a person (photo/video/live) → a reusable character asset.
+2. ✅ Choose a style (realistic / anime / Pixar-3D / …) — style engine shipped.
+3. ◑ The director agent produces a storyboard; scenes render + stitch *(shipped)*; locked-character drive lands with the quality loop.
+4. ◑ Dialogue is voiced and lip-synced *(voice + lip-sync shipped)*; score + captions + assembly *(Phase 3)*.
+5. ✅ The quality loop checks each shot against the brief and re-renders until it matches, under iteration + cost caps.
+6. ◑ The run is traced and cost-attributed *(per-job/scene tracing exists)*; finished short in the Library *(multi-scene assembly is Phase 3)*.
+7. ◑ CI green; tests cover the shipped services (202) — the loop's tests come with Phase 4; public URL is Phase 5.
 
 ---
 

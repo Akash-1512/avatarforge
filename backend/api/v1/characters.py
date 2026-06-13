@@ -150,7 +150,7 @@ async def scene_lipsync(req: LipSyncRequest) -> dict:
 
 class ScenePreviewRequest(BaseModel):
     prompt: str = Field(..., min_length=3, max_length=2000)
-    seconds: int = Field(5, ge=1, le=20)
+    seconds: int = Field(4, ge=1, le=20)  # Sora 2 snaps to {4,8,12}; default 4
     size: str = "1280x720"
     character_id: str | None = None
     engine: str | None = None
