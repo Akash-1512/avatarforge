@@ -35,7 +35,7 @@ def test_health_deep_reports_dependencies(client: TestClient) -> None:
 def test_openapi_docs_served(client: TestClient) -> None:
     resp = client.get("/openapi.json")
     assert resp.status_code == 200
-    assert resp.json()["info"]["title"] == "avatarforge API"
+    assert resp.json()["info"]["title"] == "contentforge API"
 
 
 def test_unknown_route_404(client: TestClient) -> None:
@@ -65,7 +65,7 @@ def test_root_serves_console():
     # Either the console HTML (200) or a clean 404 JSON if not built — never a crash.
     assert resp.status_code in (200, 404)
     if resp.status_code == 200:
-        assert "avatarforge" in resp.text.lower()
+        assert "contentforge" in resp.text.lower()
 
 
 def test_console_includes_architecture_view(client: TestClient) -> None:
@@ -88,3 +88,5 @@ def test_console_includes_characters_view(client: TestClient) -> None:
     html = client.get("/").text
     assert "function Characters" in html and ">Characters<" in html
     assert "/characters/" in html
+    assert "contentforge" in html  # rebranded console
+    assert ">Create<" in html  # product-flow nav

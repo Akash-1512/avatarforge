@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     # ── App ──────────────────────────────────────────────
-    app_version: str = "2.0.0"
+    app_version: str = "2.1.0"
     environment: Literal["dev", "staging", "prod"] = "dev"
     log_level: str = "INFO"
     cors_origins: List[str] = ["http://localhost:3000"]
@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     sadtalker_url: str = "http://sadtalker:8001"
     hunyuan_url: str = ""  # self-hosted GPU engine; e.g. RunPod TCP URL
     fal_api_key: str = ""  # managed engines (avatar + voice clone via fal)
+    elevenlabs_api_key: str = ""  # cloned voices for character dialogue
+    elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"  # default voice
     fal_avatar_model: str = "fal-ai/hunyuan-avatar"
     fal_voice_clone_model: str = "resemble-ai/chatterboxhd/text-to-speech"
     voice_clone_reference_url: str = ""  # public URL of the reference voice sample

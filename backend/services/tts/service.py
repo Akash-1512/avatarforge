@@ -18,7 +18,11 @@ from backend.services.storage.local import get_storage
 from backend.services.tts.audio import normalize_to_sadtalker_spec, wav_duration_seconds
 from backend.services.tts.base import AllTTSProvidersFailedError, BaseTTSProvider, TTSProviderError
 from backend.services.tts.chatterbox import ChatterboxProvider
-from backend.services.tts.providers import AzureSpeechProvider, OpenAITTSProvider
+from backend.services.tts.providers import (
+    AzureSpeechProvider,
+    ElevenLabsProvider,
+    OpenAITTSProvider,
+)
 
 logger = get_logger(__name__)
 
@@ -165,6 +169,9 @@ async def _db_usage_recorder(payload: dict) -> None:
 def get_tts_service() -> TTSService:
     settings = get_settings()
     providers = [AzureSpeechProvider(settings), OpenAITTSProvider(settings)]
+    eleven = ElevenLabsProvider(settings)
+    if eleven.available:
+        providers.append(eleven)
     # Voice cloning is an explicit opt-in (voice="cloned"), not a fallback tier —
     # it only activates when both a fal key and a reference sample are configured,
     # and the service routes to it only when the request asks for the cloned voice.

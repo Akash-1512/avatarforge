@@ -1,4 +1,4 @@
-"""avatarforge — AI avatar video generation platform.
+"""contentforge — AI content + film generation platform.
 
 FastAPI application entrypoint. Uses the app factory pattern so tests
 can spin up isolated instances with overridden settings.
@@ -46,7 +46,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
 
     app = FastAPI(
-        title="avatarforge API",
+        title="contentforge API",
         description=(
             "AI avatar video generation — script, voice, and lip-sync pipeline.\n\n"
             "Typical flow: `POST /videos/generate` with a photo and topic, get a "

@@ -78,6 +78,76 @@ async def scene_engines() -> dict:
     return get_scene_service().available()
 
 
+@router.get("/scene/styles")
+async def scene_styles() -> dict:
+    from backend.services.style.service import get_style_service
+
+    svc = get_style_service()
+    return {"styles": svc.supported(), "configured": svc.configured()}
+
+
+@router.post("/characters/{user_id}/{character_id}/restyle")
+async def restyle_character(user_id: str, character_id: str, style: str = Form(...)) -> dict:
+    """Render the character's first reference frame in a chosen style.
+
+    Realistic is a pass-through; stylized targets run through the FLUX-LoRA style
+    engine. Returns the stored stylized still id.
+    """
+    from backend.services.storage.local import get_storage
+    from backend.services.style.service import StyleEngineError, get_style_service
+
+    char = await get_character_service().get(character_id)
+    if char is None or char.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Character not found")
+    frames = char.frame_ids()
+    if not frames:
+        raise HTTPException(status_code=422, detail="Character has no reference frames")
+
+    storage = get_storage()
+    path = storage.resolve_path(frames[0])
+    if not path:
+        raise HTTPException(status_code=404, detail="Reference frame missing from storage")
+    with open(path, "rb") as fh:
+        image_bytes = fh.read()
+
+    try:
+        out = await get_style_service().restyle(image_bytes, style)
+    except StyleEngineError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    stored = await storage.save_bytes(out, "jpg")
+    return {"character_id": character_id, "style": style, "still_id": stored.file_id}
+
+
+class LipSyncRequest(BaseModel):
+    still_id: str
+    audio_id: str
+    resolution: str = "720p"
+
+
+@router.post("/scene/lipsync")
+async def scene_lipsync(req: LipSyncRequest) -> dict:
+    """Make a still speak: image + audio -> lip-synced talking clip (VEED Fabric)."""
+    from backend.services.scene.lipsync_client import LipSyncError, get_lipsync_service
+    from backend.services.storage.local import get_storage
+
+    storage = get_storage()
+    img_path = storage.resolve_path(req.still_id)
+    aud_path = storage.resolve_path(req.audio_id)
+    if not img_path or not aud_path:
+        raise HTTPException(status_code=404, detail="still_id or audio_id not found")
+    with open(img_path, "rb") as fh:
+        image_bytes = fh.read()
+    with open(aud_path, "rb") as fh:
+        audio_bytes = fh.read()
+
+    try:
+        video = await get_lipsync_service().sync(image_bytes, audio_bytes, req.resolution)
+    except LipSyncError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    stored = await storage.save_bytes(video, "mp4")
+    return {"clip_id": stored.file_id, "resolution": req.resolution}
+
+
 class ScenePreviewRequest(BaseModel):
     prompt: str = Field(..., min_length=3, max_length=2000)
     seconds: int = Field(5, ge=1, le=20)

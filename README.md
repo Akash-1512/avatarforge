@@ -126,6 +126,14 @@ the orchestration *visible*.
   full generated script shown on demand, plus its language, engine, voice, and
   length. The full narration is persisted on the job row (migration 0004), so a
   completed run is a durable, replayable record — not a one-shot download.
+- **Styles, voice & lip-sync (v2.1)** — the same character, any look, speaking.
+  A **style engine** restyles a character's reference into anime, Pixar-3D, claymation,
+  watercolor or 3D via fal FLUX-LoRA (realistic is a pass-through); **ElevenLabs** joins
+  the TTS fallback chain for cloned character voices; and a **VEED Fabric** lip-sync node
+  turns a still + dialogue into a talking clip. New endpoints: `/scene/styles`,
+  `/characters/{user}/{id}/restyle`, `/scene/lipsync`. The console is rebranded
+  **contentforge** with a cinema cutting-room identity and a product-first navigation
+  (Create / Characters / Library, then the ops views).
 - **Digital characters + Azure Sora 2 scenes (v2.0)** — the first cut of the
   content-creation platform. Ingest a photo, video, or live capture into a reusable
   **Character** (FFmpeg samples the sharpest reference frames; migration 0007), pick a
