@@ -119,6 +119,14 @@ the orchestration *visible*.
   full generated script shown on demand, plus its language, engine, voice, and
   length. The full narration is persisted on the job row (migration 0004), so a
   completed run is a durable, replayable record — not a one-shot download.
+- **Per-job trace** — click any job in the Dashboard to expand its pipeline as a
+  waterfall: each stage (script / voice / avatar) shows the provider that served
+  it, token or character counts, cost, a proportional latency bar, and a
+  **fallback** badge when the primary provider failed over. This is the LLMOps
+  view — a single request reconstructed end to end. It works because every audit
+  row is stamped with a `job_id` correlation id, threaded through the pipeline
+  via a request-scoped context var (migration 0005), then joined back per job by
+  `GET /jobs/{id}/trace`.
 - **Monitoring** — the deep observability surface: dependency readiness
   (`/health/deep`), per-provider breakdowns for LLM and speech (calls, success,
   latency, cost), the jobs-by-status distribution, and the script-eval

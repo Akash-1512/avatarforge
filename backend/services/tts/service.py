@@ -155,7 +155,9 @@ async def _db_usage_recorder(payload: dict) -> None:
     from backend.models.tts_usage import TTSUsage
 
     async with get_session_factory()() as session:
-        session.add(TTSUsage(**payload))
+        from backend.observability.trace_context import get_job_id
+
+        session.add(TTSUsage(**payload, job_id=get_job_id()))
         await session.commit()
 
 

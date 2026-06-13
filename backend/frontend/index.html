@@ -166,6 +166,30 @@
   .sec-h .rf{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--faint)}
   .muted-empty{color:var(--faint);font-size:13px;padding:18px 0;text-align:center;font-family:var(--mono)}
   .dlq td{color:#f0a89f}
+  .tbl tr.clickable{cursor:pointer}
+  .tbl tr.clickable:hover td{background:var(--surface-2)}
+
+  /* trace waterfall */
+  .trace{background:var(--base);border:1px solid var(--border);border-radius:11px;padding:16px;margin:2px 0 10px}
+  .trace-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .trace-head .tt{font-family:var(--display);font-size:14px}
+  .trace-head .agg{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .tstage{display:grid;grid-template-columns:130px 120px 1fr 150px;gap:12px;align-items:center;
+    padding:9px 0;border-top:1px solid var(--border)}
+  .tstage:first-of-type{border-top:0}
+  .tstage .sname{font-family:var(--display);font-size:13px}
+  .tstage .prov{font-family:var(--mono);font-size:11.5px;color:var(--text)}
+  .tstage .fb{display:inline-block;font-family:var(--mono);font-size:9.5px;text-transform:uppercase;
+    letter-spacing:.05em;color:var(--ember);border:1px solid var(--ember-dim);border-radius:4px;
+    padding:1px 5px;margin-left:6px}
+  .tstage .lbar{height:9px;background:var(--surface-2);border-radius:5px;overflow:hidden;position:relative}
+  .tstage .lbar i{position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,var(--ember),var(--hot));border-radius:5px}
+  .tstage.failed .lbar i{background:var(--fail)}
+  .tstage .nums{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right}
+  .tstage .nums b{color:var(--text);font-weight:500}
+  .trace-err{margin-top:10px;background:rgba(224,106,92,.1);border:1px solid rgba(224,106,92,.35);
+    color:#f0a89f;border-radius:8px;padding:9px 11px;font-family:var(--mono);font-size:12px}
+  .trace-empty{font-family:var(--mono);font-size:12px;color:var(--faint);padding:8px 0}
 
   /* library gallery */
   .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;padding-bottom:10px}
@@ -440,12 +464,57 @@ function Studio({ engines }) {
   );
 }
 
+// ---- per-job trace waterfall (LLMOps view) ----
+function TraceWaterfall({ jobId }) {
+  const [trace, setTrace] = useState(null);
+  useEffect(() => {
+    let live = true;
+    api(`/jobs/${jobId}/trace`).then(t => { if(live) setTrace(t); }).catch(()=>setTrace({stages:[]}));
+    return () => { live = false; };
+  }, [jobId]);
+
+  if (!trace) return <div className="trace"><div className="trace-empty">loading trace…</div></div>;
+  const usd = (x) => "$"+Number(x||0).toFixed(4);
+  const ms = (x) => x>=1000 ? (x/1000).toFixed(1)+"s" : x+"ms";
+
+  return (
+    <div className="trace">
+      <div className="trace-head">
+        <span className="tt">Pipeline trace</span>
+        <span className="agg">{usd(trace.total_cost_usd)} · {ms(trace.total_latency_ms||0)} total</span>
+      </div>
+      {(!trace.stages || trace.stages.length===0) ? (
+        <div className="trace-empty">No audit rows for this job yet — stages appear as the pipeline records them.</div>
+      ) : trace.stages.map(st => (
+        <div className={"tstage"+(st.success?"":" failed")} key={st.stage}>
+          <div>
+            <div className="sname">{st.label}</div>
+          </div>
+          <div className="prov">
+            {st.provider}
+            {st.fell_back && <span className="fb">fallback</span>}
+          </div>
+          <div className="lbar"><i style={{width: Math.max(3, st.latency_pct)+"%"}}/></div>
+          <div className="nums">
+            <b>{ms(st.latency_ms)}</b>
+            {st.total_tokens ? ` · ${st.total_tokens} tok` : st.characters ? ` · ${st.characters} ch` : ""}
+            {st.cost_usd>0 ? ` · ${usd(st.cost_usd)}` : ""}
+            {st.attempts>1 ? ` · ${st.attempts} tries` : ""}
+          </div>
+        </div>
+      ))}
+      {trace.error_message && <div className="trace-err">{trace.error_type}: {trace.error_message}</div>}
+    </div>
+  );
+}
+
 // ---- dashboard ----
 function Dashboard() {
   const [metrics, setMetrics] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [dlq, setDlq] = useState([]);
   const [tick, setTick] = useState(0);
+  const [openTrace, setOpenTrace] = useState(null);
 
   useEffect(() => {
     let live = true;
@@ -501,20 +570,27 @@ function Dashboard() {
           <div className="sub">{callsOf(ttsProv)} synth · {usd(sumCost(ttsProv))}</div></div>
       </div>
 
-      <div className="sec-h"><h3>Recent jobs</h3><span className="rf">auto-refresh 4s</span></div>
+      <div className="sec-h"><h3>Recent jobs</h3><span className="rf">click a row for its trace · auto-refresh 4s</span></div>
       <table className="tbl">
         <thead><tr><th>job</th><th>status</th><th>stage</th><th>engine</th><th>title</th><th>age</th></tr></thead>
         <tbody>
           {jobs.length===0 && <tr><td colSpan="6" className="muted-empty">no jobs yet — forge one in the studio</td></tr>}
           {jobs.map(j=>(
-            <tr key={j.job_id}>
-              <td>{j.job_id?.slice(0,10)}…</td>
-              <td><span className={"pill "+j.status}>{j.status}</span></td>
-              <td>{j.current_stage||"—"}</td>
-              <td>{j.engine||"—"}</td>
-              <td style={{fontFamily:"var(--sans)",color:"var(--muted)"}}>{j.script_title||"—"}</td>
-              <td>{age(j.created_at)}</td>
-            </tr>
+            <React.Fragment key={j.job_id}>
+              <tr className="clickable" onClick={()=>setOpenTrace(openTrace===j.job_id?null:j.job_id)}>
+                <td>{j.job_id?.slice(0,10)}…</td>
+                <td><span className={"pill "+j.status}>{j.status}</span></td>
+                <td>{j.current_stage||"—"}</td>
+                <td>{j.engine||"—"}</td>
+                <td style={{fontFamily:"var(--sans)",color:"var(--muted)"}}>{j.script_title||"—"}</td>
+                <td>{age(j.created_at)}</td>
+              </tr>
+              {openTrace===j.job_id && (
+                <tr><td colSpan="6" style={{padding:"0 14px 6px",background:"var(--surface)"}}>
+                  <TraceWaterfall jobId={j.job_id} />
+                </td></tr>
+              )}
+            </React.Fragment>
           ))}
         </tbody>
       </table>

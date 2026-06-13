@@ -15,6 +15,7 @@ class TokenUsage(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
+    job_id: Mapped[str] = mapped_column(String(32), nullable=True, index=True)
     provider: Mapped[str] = mapped_column(String(50), index=True)
     model: Mapped[str] = mapped_column(String(100))
     operation: Mapped[str] = mapped_column(String(50), default="script_generation")

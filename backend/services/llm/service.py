@@ -198,7 +198,9 @@ async def _db_usage_recorder(payload: dict) -> None:
     from backend.models.usage import TokenUsage
 
     async with get_session_factory()() as session:
-        session.add(TokenUsage(**payload))
+        from backend.observability.trace_context import get_job_id
+
+        session.add(TokenUsage(**payload, job_id=get_job_id()))
         await session.commit()
 
 
