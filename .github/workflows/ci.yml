@@ -74,13 +74,17 @@ jobs:
           pip-audit -r backend/requirements.txt --ignore-vuln GHSA-none || true
       - name: Build image for scanning
         run: docker build -t avatarforge-api:scan ./backend
+      - name: Install Trivy from official release
+        run: |
+          # Install the Trivy CLI directly rather than the GitHub Action.
+          # aquasecurity/trivy-action had its version tags compromised in a
+          # 2026 supply-chain attack, so we avoid the action and run the pinned
+          # binary from the official install script instead.
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.71.0
+          trivy --version
       - name: Trivy image scan (HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: avatarforge-api:scan
-          severity: HIGH,CRITICAL
-          exit-code: "0"   # report, don't block — surface findings without gating merges
-          format: table
+        run: trivy image --severity HIGH,CRITICAL --exit-code 0 --format table avatarforge-api:scan
 
   k8s-validate:
     runs-on: ubuntu-latest
@@ -149,4 +153,5 @@ jobs:
             exit 0
           fi
           python -m backend.evals.runner --limit 5
+          python -m backend.evals.planner_runner --limit 4
         working-directory: .

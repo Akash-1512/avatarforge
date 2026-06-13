@@ -126,6 +126,21 @@ the orchestration *visible*.
   full generated script shown on demand, plus its language, engine, voice, and
   length. The full narration is persisted on the job row (migration 0004), so a
   completed run is a durable, replayable record — not a one-shot download.
+- **Conversational planner with per-user memory** — an Assistant surface where
+  you describe a video and refine it across turns. It has the two memory layers a
+  real agentic product needs: short-term (the chat thread, so "make it more
+  energetic" revises the prior plan) and long-term (per-user preferences learned
+  from past conversations and recalled as defaults next session). Memory is
+  transparent and user-controlled, Claude-style: a master on/off switch, explicit
+  default tone/language/duration you can choose, and every learned item is visible
+  with its source and individually deletable (`GET/PUT/DELETE /studio/...`,
+  migration 0006). Chosen preferences always win over learned ones. No auth yet,
+  so identity is a client-supplied `user_id` — real identity slots in unchanged.
+- **Two eval suites** — script generation is scored by 6 deterministic metrics
+  plus an LLM-as-judge (G-Eval), and the planner agent has its own suite scoring
+  whether it always emits an in-spec, intent-faithful plan across diverse and
+  adversarial briefs. Both run as regression gates in CI (`make eval`,
+  `make eval-planner`) and fail the build when an aggregate drops below threshold.
 - **Architecture view** — a system-design tab in the console: the request
   lifecycle, the LangGraph pipeline, the planner agent, the three-model engine
   registry, the provider fallback chains, and the observability rail, drawn as

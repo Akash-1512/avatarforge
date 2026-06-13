@@ -79,6 +79,36 @@ class PlannerService:
             rationale="Planner output could not be validated; using safe defaults.",
         )
 
+    async def chat(
+        self, message: str, history: list[dict] | None = None, memory_hint: str = ""
+    ) -> VideoPlan:
+        """Conversational planning: refine a VideoPlan across turns.
+
+        The short-term thread (history) and a long-term memory hint (the user's
+        learned/chosen defaults) are folded into the prompt, so a follow-up like
+        "make it more energetic" revises the prior plan instead of starting over,
+        and a returning user's preferences seed the first turn. Output is still
+        validated against VideoPlan — the same corrective-retry/safe-default path
+        as one-shot planning, so conversation adds context, not a new failure mode.
+        """
+        convo = ""
+        for turn in (history or [])[-12:]:
+            who = "User" if turn.get("role") == "user" else "Planner"
+            convo += f"{who}: {turn.get('content', '')}\n"
+        hint = f"\nKnown preferences for this user: {memory_hint}\n" if memory_hint else ""
+        user_prompt = (
+            f"{hint}Conversation so far:\n{convo}\n"
+            f"Latest request: {message}\n\n"
+            "Produce the updated plan as ONLY the JSON object."
+        )
+        raw = await self.llm.complete_json_raw(_PLANNER_SYSTEM, user_prompt)
+        plan = self._parse(raw)
+        if plan is not None:
+            logger.info("plan_chat_created", engine=plan.engine, lang=plan.language, tone=plan.tone)
+            return plan
+        # reuse the one-shot fallback: treat the latest message as a brief
+        return await self.plan(message)
+
     @staticmethod
     def _parse(raw: str) -> VideoPlan | None:
         try:
