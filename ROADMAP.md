@@ -195,7 +195,7 @@ Each phase ships as a tagged release with tests and green CI, same cadence as v1
 - *Exit:* a shot that fails the brief is detected and improved automatically, with
   the iteration history visible in the trace.
 
-### ▶ Phase 5 — Film Studio console + deployment  (v2.4.0) — NEXT
+### ◑ Phase 5 — Film Studio console + deployment  (v2.4.0) — UI shipped, deploy script ready
 - Deepen the **Create** view into a film flow: character → style → brief → watch the
   storyboard render → see the quality loop iterate live. (The redesign's shell + the
   Characters gallery are already in; this builds the multi-scene surface on top.)
@@ -203,7 +203,12 @@ Each phase ships as a tagged release with tests and green CI, same cadence as v1
   multiplier for the whole project.
 - *Exit:* a stranger can open a URL, create a short, and watch it self-correct.
 
-### Phase 6 — Hardening + finishing  (v2.5.0)
+### ◑ Phase 6 — Hardening + finishing  (v2.5.0) — auth shipped; rest in progress
+
+*Auth landed first (v2.5.0): email+password, bcrypt, JWT, get_current_user, real
+per-user ownership replacing the client-supplied user_id. This also kicks off the
+new product direction — accounts, multi-avatar casts, described voices, and the
+chat-native streaming studio.*
 - Auth/API-key layer (the standing gap — `user_id` is still client-supplied),
   idempotency keys, outbound webhooks.
 - Upscale/finish pass for hero renders; p50/p95/p99 latency in Monitoring.
@@ -270,3 +275,12 @@ LLM/voice + a couple of fal lip-sync/restyle calls + the loop's 1–2 re-renders
 (Sora 2 $0.10/sec, preview, RAI photorealistic block); fal.ai model pages (Kling 3.0,
 FLUX-LoRA training + image-to-image, VEED Fabric/Lipsync); ElevenLabs pricing pages;
 industry pricing comparisons (Kling/Seedance/Wan per-second rates).*
+
+
+### ▶ New product direction — the conversational studio
+1. ✅ Auth + ownership (v2.5)
+2. ✅ Multi-avatar casts (v2.6)
+3. ✅ Real-person video + voice + lip-sync (v2.7)
+4. ✅ FilmSession backend: interpretation step + streamed thinking + conversational edits (v2.8)
+5. ✅ **Described-voice synthesis** — "a warm baritone" -> a real voice (v2.10)
+6. ✅ **Next.js chat studio** — login, avatars, streaming chat-native film studio (v2.9–2.10)

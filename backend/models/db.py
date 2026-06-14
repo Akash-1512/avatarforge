@@ -58,10 +58,12 @@ async def init_db() -> None:
         avatar_usage,
         character,
         chat,
+        film_session,
         job,
         memory,
         tts_usage,
         usage,
+        user,
     )
 
     engine = get_engine()

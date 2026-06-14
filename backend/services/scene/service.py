@@ -32,6 +32,7 @@ class SceneRequest:
     size: str = "1280x720"
     has_real_face_reference: bool = False
     engine: Optional[str] = None  # explicit override; else routed
+    reference_image: Optional[bytes] = None  # the character frame for reference engines
 
 
 class SceneService:
@@ -68,6 +69,14 @@ class SceneService:
         name = self.route(req)
         client = self.resolve(name)
         logger.info("scene_generate", engine=name, seconds=req.seconds, size=req.size)
+        # reference-capable engines (Kling) take the character frame; others ignore it
+        if getattr(client, "accepts_real_face", False) and req.reference_image is not None:
+            return await client.generate(
+                req.prompt,
+                seconds=req.seconds,
+                size=req.size,
+                reference_image=req.reference_image,
+            )
         return await client.generate(req.prompt, seconds=req.seconds, size=req.size)
 
     def available(self) -> dict:

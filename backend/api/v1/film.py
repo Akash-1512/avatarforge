@@ -11,9 +11,12 @@ reference-capable engine; otherwise Sora 2), the same rule used for a single sce
 
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from backend.api.v1.auth import get_current_user
+from backend.models.user import User
+from backend.services.cast.service import CastError, get_cast_service
 from backend.services.composition.service import CompositionError, get_composition_service
 from backend.services.director.service import DirectorError, Scene, Storyboard, get_director_service
 
@@ -126,6 +129,66 @@ async def refine_scene(req: RefineRequest) -> dict:
                 "est_cost_usd": a.est_cost_usd,
             }
             for a in result.attempts
+        ],
+    }
+
+
+class CastMemberModel(BaseModel):
+    role: str = Field(..., min_length=1, max_length=60)
+    avatar_id: str
+    voice: str = ""
+
+
+class CastComposeRequest(BaseModel):
+    script: str = Field(..., min_length=3, max_length=8000)
+    cast: List[CastMemberModel] = Field(..., min_length=1)
+    theme: Optional[str] = None  # overrides per-avatar style for the whole film
+
+
+@router.post("/film/cast-compose")
+async def cast_compose(
+    req: CastComposeRequest, current_user: User = Depends(get_current_user)
+) -> dict:
+    """The product's core flow: a script + a cast of named people (each bound to an
+    owned avatar and a voice) -> a cast-aware storyboard -> per-member routed render
+    -> one assembled short. Each role renders in its avatar's look, and a real-person
+    role is forced onto a reference-capable engine."""
+    try:
+        cast = await get_cast_service().bind(current_user.id, [m.model_dump() for m in req.cast])
+    except CastError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    roles = [m.role for m in cast.members]
+    try:
+        board = await get_director_service().storyboard_with_cast(
+            req.script, roles, style=req.theme
+        )
+        result = await get_composition_service().render_with_cast(board, cast)
+    except DirectorError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except CompositionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    from backend.services.storage.local import get_storage
+
+    stored = await get_storage().save_bytes(result.stitched, "mp4")
+    return {
+        "clip_id": stored.file_id,
+        "title": board.title,
+        "theme": board.style,
+        "cast": [
+            {"role": m.role, "avatar": m.display_name, "style": m.style} for m in cast.members
+        ],
+        "scene_count": len(result.clips),
+        "total_seconds": result.total_seconds,
+        "scenes": [
+            {
+                "index": c.index,
+                "engine": c.engine,
+                "role": board.scenes[c.index].role,
+                "seconds": c.seconds,
+            }
+            for c in result.clips
         ],
     }
 

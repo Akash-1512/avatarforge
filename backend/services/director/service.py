@@ -54,6 +54,7 @@ class Scene:
     camera: str
     dialogue: str
     seconds: int
+    role: str = ""  # which cast role appears in this shot (empty = no specific person)
 
 
 @dataclass
@@ -72,6 +73,16 @@ class DirectorError(Exception):
         super().__init__(message)
         self.status_code = status_code
 
+
+_DIRECTOR_CAST_SYSTEM = _DIRECTOR_SYSTEM.replace(
+    "Output JSON only.",
+    'Each scene also has a "role" naming the single cast member on screen '
+    "(must be one of the provided cast roles, or empty). Output JSON only.",
+).replace(
+    '"seconds": integer      // 2-10',
+    '"seconds": integer,     // 2-10\n'
+    '      "role": string          // a cast role on screen, or ""',
+)
 
 _VALID_STYLES = {"realistic", "anime", "pixar", "3d", "claymation", "watercolor"}
 
@@ -95,6 +106,35 @@ class DirectorService:
             board.style = style if style in _VALID_STYLES else board.style
         return self._clamp(board)
 
+    async def storyboard_with_cast(
+        self, script: str, roles: list[str], style: Optional[str] = None
+    ) -> Storyboard:
+        """Plan a storyboard from a script + the cast's role names, tagging each
+        scene with the role on screen so composition can route per person."""
+        roster = ", ".join(roles) if roles else "(none)"
+        user = (
+            f"Cast roles: {roster}.\n"
+            f'For each scene set "role" to the single cast role on screen '
+            f"(one of the cast roles, or empty if none).\n\nScript:\n{script}"
+        )
+        raw = await self.llm.complete_json_raw(_DIRECTOR_CAST_SYSTEM, user)
+        board = self._parse(raw)
+        if board is None:
+            raw = await self.llm.complete_json_raw(
+                _DIRECTOR_CAST_SYSTEM, "Return ONLY valid JSON. " + user
+            )
+            board = self._parse(raw)
+        if board is None:
+            raise DirectorError("Director could not produce a valid storyboard")
+        # keep only roles that exist in the cast; blank out hallucinated names
+        valid = {r.upper() for r in roles}
+        for s in board.scenes:
+            if s.role and s.role.upper() not in valid:
+                s.role = ""
+        if style:
+            board.style = style if style in _VALID_STYLES else board.style
+        return self._clamp(board)
+
     @staticmethod
     def _parse(raw: str) -> Optional[Storyboard]:
         try:
@@ -105,6 +145,7 @@ class DirectorService:
                     camera=str(s.get("camera", "")).strip(),
                     dialogue=str(s.get("dialogue", "")).strip(),
                     seconds=int(s.get("seconds", 5)),
+                    role=str(s.get("role", "")).strip(),
                 )
                 for s in data.get("scenes", [])
                 if str(s.get("shot", "")).strip()

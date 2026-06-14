@@ -126,6 +126,59 @@ the orchestration *visible*.
   full generated script shown on demand, plus its language, engine, voice, and
   length. The full narration is persisted on the job row (migration 0004), so a
   completed run is a durable, replayable record — not a one-shot download.
+- **Described voices + studio polish (v2.10)** — closes the last vision gap: a cast
+  member's voice can now be **described in plain words** ("a warm, unhurried baritone")
+  instead of needing a preset id. A resolver maps the description (via the LLM, with a
+  keyword fallback) onto a voice role and a concrete Azure voice, resolved transparently
+  before synthesis; explicit voice ids still pass straight through. The web studio gains
+  a **films-history sidebar** (your past sessions, the current one highlighted), and the
+  frontend is upgraded to **Next.js 15** (security patches; the earlier critical/high
+  advisories resolved).
+- **Web studio — Next.js frontend (v2.9)** — the chat-native UI, the half that makes
+  the studio visible. A dark, cinematic Next.js app (`frontend/`): `/login` (real JWT
+  auth), `/avatars` (create + list avatars), and `/studio` — the centrepiece, where you
+  write a script, pick a theme and cast, and **watch the film take shape** as the SSE
+  stage feed streams the AI's thinking (interpret → storyboard → render → done) onto a
+  director's timeline, then refine it by chat. Verified to build clean (typecheck +
+  `next build`, 5 routes). Talks to the FastAPI backend through a same-origin proxy.
+- **Conversational film studio — backend (v2.8)** — the chat-native lifecycle. A
+  **FilmSession** (persistent, user-owned) holds the interpretation, storyboard,
+  scenes, and conversation history. Creation runs **interpret -> storyboard -> render**
+  while *streaming its thinking* as SSE stage events (`interpreting`, `interpreted`,
+  `storyboarding`, `rendering`, `done`) so a chat UI can show the work live — and the
+  new **interpretation step** shows the user how the request was understood *before*
+  rendering. After a film is made, follow-up chat messages are **edits**: targeted
+  actions (re-render, change theme, change a character's voice) plus open-ended natural
+  language mapped onto them by an intent parser, applied to the same session. Endpoints:
+  `POST /studio/film`, `GET /studio/film/{id}/stream` (SSE), `POST /studio/film/{id}/edit`
+  (SSE), `GET /studio/film/{id}`, `GET /studio/films`.
+- **Real people speak (v2.7)** — three gaps closed so films are complete. (1) The
+  Kling stub is now a **real fal image-to-video** call: a real-person role's avatar
+  frame becomes an identity-locked clip (`fal-ai/kling-video/v2.6/pro/image-to-video`,
+  `start_image_url`). (2) The scene contract carries a **reference image**, loaded from
+  the member's avatar and routed only to reference-capable engines. (3) A resilient
+  **voice + lip-sync** pass: each role's dialogue is synthesized in its voice (Azure ->
+  OpenAI -> ElevenLabs chain) and lip-synced onto its scene (VEED Fabric) — and any
+  failure keeps the silent clip rather than failing the film. Cast films now talk.
+- **Multi-avatar casts (v2.6)** — the product's core flow. `POST /film/cast-compose`
+  takes a script plus a **cast block** (named roles, each bound to one of your owned
+  avatars + a voice) and a theme, and produces one assembled short. The director writes
+  a **cast-aware storyboard** (each scene tagged with the role on screen) and composition
+  renders **per member** — each role in its avatar's look, with a real-person role forced
+  onto a reference-capable engine and a stylized role onto Sora 2. Every avatar in the
+  cast is ownership-checked against the authenticated user.
+- **Accounts & ownership (v2.5)** — real register/login with email + password
+  (bcrypt-hashed) and JWT sessions. `POST /auth/register`, `POST /auth/login`,
+  `GET /auth/me`, and a `get_current_user` dependency. Avatars and renders are now
+  owned by an authenticated user — the client-supplied `user_id` is gone; identity
+  comes from the bearer token, with per-user isolation enforced server-side. This is
+  the foundation for the new product (multi-avatar casts, the chat studio) and closes
+  the project's long-standing auth gap.
+- **Studio + public deployment (v2.4)** — the Create view now surfaces the quality
+  loop: render one scene, watch the vision judge score each attempt (a live score bar
+  per iteration with the issues it raised) until it clears your threshold. And
+  `scripts/deploy-aca.ps1` ships the app to **Azure Container Apps** behind managed
+  Postgres/Redis with secrets wired and scale-to-zero — a public, clickable URL.
 - **Self-correcting quality loop (v2.3)** — the centrepiece. A scene renders, a
   **vision judge** (Azure OpenAI) extracts a frame and scores it against the intended
   description, and if it falls short the judge's suggestion is folded into the prompt

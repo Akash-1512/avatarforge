@@ -291,6 +291,32 @@
   .scene .sshot{font-size:14px;color:var(--text);margin-bottom:3px}
   .scene .smeta{font-family:var(--mono);font-size:11px;color:var(--faint)}
   .filmout{margin-top:16px}
+  /* quality-loop refine panel */
+  .refinepanel{margin-top:18px;border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  .refinetoggle{width:100%;text-align:left;background:var(--surface);border:0;color:var(--text);
+    font-family:var(--mono);font-size:12px;letter-spacing:.04em;padding:13px 16px;cursor:pointer}
+  .refinetoggle:hover{color:var(--ember)}
+  .refinebody{padding:0 16px 16px;background:var(--surface)}
+  .refinehint{font-size:12.5px;color:var(--muted);margin:4px 0 14px;line-height:1.5}
+  .refinectrls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .refinectrls input[type=text],.refinectrls>input{flex:1 1 280px;background:var(--base);
+    border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 11px;font-size:13px}
+  .refinectrls .thr{display:flex;align-items:center;gap:7px;font-family:var(--mono);
+    font-size:11px;color:var(--muted)}
+  .refinectrls .thr input{accent-color:var(--ember)}
+  .refineres{margin-top:16px}
+  .refinesummary{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .verdict{font-family:var(--mono);font-size:11px;letter-spacing:.08em;padding:3px 9px;border-radius:6px}
+  .verdict.pass{color:var(--base);background:var(--done)}
+  .verdict.fail{color:var(--base);background:var(--ember)}
+  .rmeta{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .attempts{display:flex;flex-direction:column;gap:8px}
+  .attempt{display:flex;align-items:center;gap:11px}
+  .attempt .ai{font-family:var(--mono);font-size:11px;color:var(--faint);width:24px;flex:none}
+  .attempt .abar{flex:1;height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+  .attempt .afill{height:100%;transition:width .4s ease}
+  .attempt .asc{font-family:var(--mono);font-size:11px;color:var(--text);width:34px;flex:none}
+  .attempt .aiss{font-size:11px;color:var(--muted);flex:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
   /* characters gallery */
   .charbar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px;
@@ -1397,6 +1423,27 @@ function Film() {
     finally { setPhase("idle"); }
   };
 
+  // self-correcting quality loop on a single scene — the centrepiece, made visible.
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [refinePrompt, setRefinePrompt] = useState("");
+  const [threshold, setThreshold] = useState(0.85);
+  const [refineRes, setRefineRes] = useState(null);
+  const refine = async () => {
+    if (refinePrompt.trim().length < 3) return;
+    setPhase("refining"); setErr(null); setRefineRes(null);
+    try {
+      const r = await api("/scene/refine", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          prompt: refinePrompt.trim(), seconds: 4,
+          character_id: charId || null, threshold, max_iterations: 3,
+        }),
+      });
+      setRefineRes(r);
+    } catch(e) { setErr(e.message || "refine failed"); }
+    finally { setPhase("idle"); }
+  };
+
   const total = board ? board.scenes.reduce((a,s)=>a+s.seconds,0) : 0;
 
   return (
@@ -1445,6 +1492,53 @@ function Film() {
         <div className="filmout">
           <video controls src={`${API}/media/${clipId}`} style={{width:"100%",borderRadius:12}}/>
         </div>}
+
+      <div className="refinepanel">
+        <button className="refinetoggle" onClick={()=>setRefineOpen(o=>!o)}>
+          {refineOpen ? "▾" : "▸"} Self-correcting scene (quality loop)
+        </button>
+        {refineOpen &&
+          <div className="refinebody">
+            <p className="refinehint">Render one scene, let a vision judge score it against your
+              description, and re-render with feedback until it clears the bar — under hard
+              iteration &amp; cost caps.</p>
+            <div className="refinectrls">
+              <input value={refinePrompt} onChange={e=>setRefinePrompt(e.target.value)}
+                placeholder="e.g. a neon fox holding a red umbrella, three blue lanterns behind it"/>
+              <label className="thr">threshold
+                <input type="range" min="0.5" max="0.99" step="0.01" value={threshold}
+                  onChange={e=>setThreshold(parseFloat(e.target.value))}/>
+                <span>{threshold.toFixed(2)}</span></label>
+              <button className="btn primary" onClick={refine} disabled={phase!=="idle"}>
+                {phase==="refining" ? "Refining…" : "Refine"}</button>
+            </div>
+
+            {refineRes &&
+              <div className="refineres">
+                <div className="refinesummary">
+                  <span className={refineRes.passed?"verdict pass":"verdict fail"}>
+                    {refineRes.passed ? "PASSED" : "BEST EFFORT"}</span>
+                  <span className="rmeta">best {refineRes.best_score} ·
+                    {refineRes.iterations} iter{refineRes.iterations===1?"":"s"} ·
+                    ~${refineRes.est_cost_usd}</span>
+                </div>
+                <div className="attempts">
+                  {refineRes.attempts.map(a=>(
+                    <div className="attempt" key={a.iteration}>
+                      <span className="ai">#{a.iteration}</span>
+                      <div className="abar"><div className="afill"
+                        style={{width:`${Math.round(a.score*100)}%`,
+                          background: a.score>=threshold?"var(--done)":"var(--ember)"}}/></div>
+                      <span className="asc">{a.score.toFixed(2)}</span>
+                      <span className="aiss">{a.issues && a.issues.length ? a.issues.join("; ") : "—"}</span>
+                    </div>
+                  ))}
+                </div>
+                <video controls src={`${API}/media/${refineRes.clip_id}`}
+                  style={{width:"100%",borderRadius:12,marginTop:12}}/>
+              </div>}
+          </div>}
+      </div>
     </div>
   );
 }

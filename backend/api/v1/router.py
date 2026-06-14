@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from backend.api.v1 import (
+    auth,
     avatar,
     characters,
     film,
@@ -11,12 +12,14 @@ from backend.api.v1 import (
     metrics,
     script,
     studio,
+    studio_film,
     tts,
     videos,
 )
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
+api_router.include_router(auth.router, tags=["auth"])
 api_router.include_router(script.router, tags=["script"])
 api_router.include_router(tts.router, tags=["tts"])
 api_router.include_router(media.router, tags=["media"])
@@ -24,5 +27,6 @@ api_router.include_router(avatar.router, tags=["avatar"])
 api_router.include_router(videos.router, tags=["videos"])
 api_router.include_router(metrics.router, tags=["metrics"])
 api_router.include_router(studio.router, tags=["studio"])
+api_router.include_router(studio_film.router, tags=["studio-film"])
 api_router.include_router(characters.router, tags=["characters"])
 api_router.include_router(film.router, tags=["film"])

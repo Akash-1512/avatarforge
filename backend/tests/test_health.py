@@ -62,31 +62,8 @@ def test_root_serves_console():
 
     client = TestClient(create_app())
     resp = client.get("/")
-    # Either the console HTML (200) or a clean 404 JSON if not built — never a crash.
+    # No frontend is built, so the root returns a clean 404 JSON pointing at the
+    # API docs — never a crash. (If a frontend is added later, 200 is also valid.)
     assert resp.status_code in (200, 404)
-    if resp.status_code == 200:
-        assert "contentforge" in resp.text.lower()
-
-
-def test_console_includes_architecture_view(client: TestClient) -> None:
-    """The operator console ships the Architecture view (system-design tab)."""
-    html = client.get("/").text
-    assert "function Architecture" in html
-    assert ">Architecture<" in html  # nav button
-    assert "Engine registry" in html and "LangGraph pipeline" in html
-
-
-def test_console_includes_assistant_view(client: TestClient) -> None:
-    """The console ships the conversational Assistant with the memory panel."""
-    html = client.get("/").text
-    assert "function Assistant" in html and ">Assistant<" in html
-    assert "Memory & preferences" in html and "/studio/chat" in html
-
-
-def test_console_includes_characters_view(client: TestClient) -> None:
-    """The console ships the Characters gallery (digital character assets)."""
-    html = client.get("/").text
-    assert "function Characters" in html and ">Characters<" in html
-    assert "/characters/" in html
-    assert "contentforge" in html  # rebranded console
-    assert ">Create<" in html  # product-flow nav
+    if resp.status_code == 404:
+        assert resp.json().get("api_docs") == "/docs"

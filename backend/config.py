@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     # ── App ──────────────────────────────────────────────
-    app_version: str = "2.3.0"
+    app_version: str = "2.10.0"
     environment: Literal["dev", "staging", "prod"] = "dev"
     log_level: str = "INFO"
     cors_origins: List[str] = ["http://localhost:3000"]
@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     fal_api_key: str = ""  # managed engines (avatar + voice clone via fal)
     elevenlabs_api_key: str = ""  # cloned voices for character dialogue
     elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"  # default voice
+    jwt_secret: str = "dev-secret-change-in-production"  # HS256 signing key
+    jwt_expire_hours: int = 168  # 7-day sessions
     fal_avatar_model: str = "fal-ai/hunyuan-avatar"
     fal_voice_clone_model: str = "resemble-ai/chatterboxhd/text-to-speech"
     voice_clone_reference_url: str = ""  # public URL of the reference voice sample

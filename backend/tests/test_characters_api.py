@@ -81,29 +81,45 @@ async def api(tmp_path, monkeypatch):
     sf = async_sessionmaker(engine, expire_on_commit=False)
     svc = CharacterService(session_factory=sf, ingest=CharacterIngestService(_MemStorage()))
     monkeypatch.setattr(characters_api, "get_character_service", lambda: svc)
-    yield
+    # auth shares the same DB so the token's user resolves
+    import backend.api.v1.auth as auth_api
+
+    monkeypatch.setattr(auth_api, "_session_factory", lambda: sf)
+    client = TestClient(create_app())
+    reg = client.post(
+        "/api/v1/auth/register", json={"email": "owner@x.com", "password": "password123"}
+    ).json()
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    yield client, headers
     await engine.dispose()
 
 
 @pytest.mark.asyncio
 async def test_create_character_endpoint(api):
-    client = TestClient(create_app())
+    client, headers = api
     resp = client.post(
         "/api/v1/characters",
         data={
-            "user_id": "u1",
             "name": "Nova",
             "source_kind": "photo",
             "default_style": "pixar",
             "is_real_person": "true",
         },
         files={"source": ("face.png", _png(), "image/png")},
+        headers=headers,
     )
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["default_style"] == "pixar" and body["frame_count"] == 1
-    listed = client.get("/api/v1/characters/u1").json()
+    listed = client.get("/api/v1/characters", headers=headers).json()
     assert len(listed["characters"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_characters_require_auth(api):
+    client, _ = api
+    assert client.get("/api/v1/characters").status_code == 401
+    assert client.post("/api/v1/characters", data={"name": "x"}).status_code == 401
 
 
 @pytest.mark.asyncio

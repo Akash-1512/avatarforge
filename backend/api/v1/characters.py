@@ -11,9 +11,11 @@
 Identity is a client-supplied user_id (no auth yet); real identity slots in here.
 """
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
+from backend.api.v1.auth import get_current_user
+from backend.models.user import User
 from backend.services.character.ingest import IngestError
 from backend.services.character.service import get_character_service
 from backend.services.scene.service import SceneRequest, get_scene_service
@@ -37,17 +39,17 @@ def _char_payload(c) -> dict:
 
 @router.post("/characters", status_code=201)
 async def create_character(
-    user_id: str = Form(...),
     name: str = Form(...),
     source: UploadFile = File(...),
     source_kind: str = Form("photo"),
     default_style: str = Form("realistic"),
     is_real_person: bool = Form(True),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     data = await source.read()
     try:
         char = await get_character_service().create(
-            user_id=user_id,
+            user_id=current_user.id,
             name=name,
             source_bytes=data,
             source_kind=source_kind,
@@ -59,15 +61,17 @@ async def create_character(
     return _char_payload(char)
 
 
-@router.get("/characters/{user_id}")
-async def list_characters(user_id: str) -> dict:
-    chars = await get_character_service().list_for_user(user_id)
-    return {"user_id": user_id, "characters": [_char_payload(c) for c in chars]}
+@router.get("/characters")
+async def list_characters(current_user: User = Depends(get_current_user)) -> dict:
+    chars = await get_character_service().list_for_user(current_user.id)
+    return {"user_id": current_user.id, "characters": [_char_payload(c) for c in chars]}
 
 
-@router.delete("/characters/{user_id}/{character_id}")
-async def delete_character(user_id: str, character_id: str) -> dict:
-    ok = await get_character_service().delete(user_id, character_id)
+@router.delete("/characters/{character_id}")
+async def delete_character(
+    character_id: str, current_user: User = Depends(get_current_user)
+) -> dict:
+    ok = await get_character_service().delete(current_user.id, character_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Character not found")
     return {"deleted": character_id}
@@ -86,8 +90,12 @@ async def scene_styles() -> dict:
     return {"styles": svc.supported(), "configured": svc.configured()}
 
 
-@router.post("/characters/{user_id}/{character_id}/restyle")
-async def restyle_character(user_id: str, character_id: str, style: str = Form(...)) -> dict:
+@router.post("/characters/{character_id}/restyle")
+async def restyle_character(
+    character_id: str,
+    style: str = Form(...),
+    current_user: User = Depends(get_current_user),
+) -> dict:
     """Render the character's first reference frame in a chosen style.
 
     Realistic is a pass-through; stylized targets run through the FLUX-LoRA style
@@ -97,7 +105,7 @@ async def restyle_character(user_id: str, character_id: str, style: str = Form(.
     from backend.services.style.service import StyleEngineError, get_style_service
 
     char = await get_character_service().get(character_id)
-    if char is None or char.user_id != user_id:
+    if char is None or char.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Character not found")
     frames = char.frame_ids()
     if not frames:
@@ -157,15 +165,17 @@ class ScenePreviewRequest(BaseModel):
 
 
 @router.post("/scene/preview")
-async def scene_preview(req: ScenePreviewRequest) -> dict:
+async def scene_preview(
+    req: ScenePreviewRequest, current_user: User = Depends(get_current_user)
+) -> dict:
     """Generate one scene clip. Routes by content policy: a character marked as a
     real person forces a reference-capable engine; otherwise text-to-scene (Sora 2).
-    Returns the stored clip id. Character-conditioned reference shots land in Phase 3.
+    Returns the stored clip id.
     """
     has_real_face = False
     if req.character_id:
         char = await get_character_service().get(req.character_id)
-        if char is None:
+        if char is None or char.user_id != current_user.id:
             raise HTTPException(status_code=404, detail="Character not found")
         has_real_face = bool(char.is_real_person)
 
